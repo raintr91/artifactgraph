@@ -14,6 +14,7 @@ import { loadRegistries, indexRegistries } from '../registry/load-registries.js'
 import { analyzeSpecFile } from '../analyze/analyze-spec.js'
 import { analyzeBullets } from '../analyze/analyze-bullets.js'
 import { grillCheck, recordGrillDecision } from '../analyze/grill-check.js'
+import { parityCheck, recordParityDecision } from '../analyze/parity-check.js'
 import { runAllowlistedCommand } from '../gen/run-command.js'
 import { loadPlatformReposMap } from '../config/platform-repos.js'
 
@@ -135,23 +136,63 @@ export function registerTools(server: McpServer): void {
     },
   )
 
-  /** Persist grill confirm into SQLite (local memory with schema). */
+  /**
+   * Cross-surface parity (create≠edit validate, null vs '', FE≠BE).
+   * Prefer after /legacy-spec archaeology — before grill rounds.
+   */
   server.tool(
-    'artifactgraph_remember',
-    'Store a grill confirm decision in SQLite so later bullet analyze can skip cloud',
+    'artifactgraph_parity_check',
+    'Local parity: scan module legacy.fields and/or ingest parityFindings → parity-drift + askUser',
     {
       projectId: z.string(),
-      subject: z.string().describe('e.g. column:status or entity:hotel'),
+      moduleDir: z
+        .string()
+        .optional()
+        .describe('Module path with bundles / _legacy.trace.yaml (relative to repo)'),
+      findingsPath: z.string().optional().describe('YAML/JSON with parityFindings[] from cloud'),
+      findingsJson: z.string().optional().describe('Inline JSON: { parityFindings: [...] }'),
+    },
+    async ({ projectId, moduleDir, findingsPath, findingsJson }) => {
+      if (!moduleDir && !findingsPath && !findingsJson) {
+        throw new Error('Provide moduleDir and/or findingsPath / findingsJson')
+      }
+      const project = resolveProject(projectId)
+      const store = new IndexStore(project.root)
+      const result = parityCheck({
+        repoRoot: project.root,
+        projectId,
+        moduleDir,
+        findingsPath,
+        findingsJson,
+        store,
+      })
+      store.close()
+      return text(result)
+    },
+  )
+
+  /** Persist grill or parity confirm into SQLite. */
+  server.tool(
+    'artifactgraph_remember',
+    'Store grill or parity confirm in SQLite so later analyze can skip cloud / re-ask',
+    {
+      projectId: z.string(),
+      subject: z.string().describe('e.g. column:status or password.min (parity id)'),
       choice: z.enum(['A', 'B', 'C']),
+      kind: z
+        .enum(['grill', 'parity'])
+        .optional()
+        .describe('Default grill; use parity for parity-drift confirms'),
       payloadJson: z.string().optional().describe('Extra JSON object as string'),
     },
-    async ({ projectId, subject, choice, payloadJson }) => {
+    async ({ projectId, subject, choice, kind, payloadJson }) => {
       const project = resolveProject(projectId)
       const store = new IndexStore(project.root)
       const payload = payloadJson ? JSON.parse(payloadJson) : {}
-      recordGrillDecision(store, subject, choice, payload)
+      if (kind === 'parity') recordParityDecision(store, subject, choice, payload)
+      else recordGrillDecision(store, subject, choice, payload)
       store.close()
-      return text({ ok: true, subject, choice })
+      return text({ ok: true, subject, choice, kind: kind ?? 'grill' })
     },
   )
 

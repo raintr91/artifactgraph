@@ -11,9 +11,11 @@ import { parse as parseYaml } from 'yaml'
 import type { AnalyzeResult, ArtifactgraphConfig, Gap } from '../types.js'
 import { loadRegistries } from '../registry/load-registries.js'
 import type { IndexStore } from '../db/index-store.js'
+import { parityCloudSchemaBlock } from './parity-check.js'
 
 interface SpecDoc {
   tags?: string[]
+  specOrigin?: string
   codegen?: { profile?: string; entity?: string; module?: string }
   marks?: Array<{ kind?: string; tag?: string }>
   ui?: { columns?: Array<{ key?: string; component?: string }> }
@@ -141,6 +143,22 @@ export function analyzeSpecFile(
     }
   }
 
+  // --- non-legacy: confirm generated blocks with member (LOCAL, not cloud) ---
+  const origin = String(doc.specOrigin ?? '')
+  const isLegacy = origin === 'legacy' || abs.includes('_legacy')
+  if (!isLegacy && (doc.codegen?.profile || tags.length > 0)) {
+    askUser.push(
+      '[GRILL-CONFIRM] Blocks/tags đề xuất từ IR (không clone legacy). Member xác nhận đúng trước khi gen? (yes / edit / defer) — local only, không cloud',
+    )
+    gaps.push({
+      kind: 'missing-hashtag',
+      message: 'Non-legacy spec: confirm generated blocks/tags with member before gen (local askUser)',
+      source: abs,
+      severity: 'info',
+      confidence: 0.95,
+    })
+  }
+
   // --- unit / e2e defaults when profile known but no test tags ---
   if (profile === 'list' && regs.unitPatterns.length && !tags.some((t) => t.includes('#needs-unit') || t.includes('#unit:'))) {
     gaps.push({
@@ -153,7 +171,10 @@ export function analyzeSpecFile(
   }
 
   const unresolved = gaps.filter((g) => g.confidence < 0.8 || g.severity !== 'info')
-  const cloudPromptSlice = formatCloudSlice(unresolved, tags)
+  let cloudPromptSlice = formatCloudSlice(unresolved, tags)
+  if (isLegacy) {
+    cloudPromptSlice = `${cloudPromptSlice}\n\n${parityCloudSchemaBlock()}`
+  }
 
   const result: AnalyzeResult = {
     projectId: cfg.projectId,

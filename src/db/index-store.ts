@@ -100,6 +100,15 @@ export class IndexStore {
     return rows.map((r) => ({ kind: r.kind, subject: r.subject, payload: JSON.parse(r.payload) }))
   }
 
+  findDecisionsByKind(kind: string): Array<{ kind: string; subject: string; payload: unknown }> {
+    const rows = this.db
+      .prepare(
+        `SELECT kind, subject, payload FROM decision WHERE kind = ? ORDER BY id DESC LIMIT 200`,
+      )
+      .all(kind) as Array<{ kind: string; subject: string; payload: string }>
+    return rows.map((r) => ({ kind: r.kind, subject: r.subject, payload: JSON.parse(r.payload) }))
+  }
+
   saveGapSnapshot(specPath: string | undefined, gaps: Gap[]): void {
     this.db
       .prepare(`INSERT INTO gap_snapshot(spec_path, payload, created_at) VALUES (?, ?, ?)`)

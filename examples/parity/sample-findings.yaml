@@ -1,0 +1,41 @@
+# parityFindings sample — same-turn cloud archaeology output
+# Ingest: artifactgraph parity --findings examples/parity/sample-findings.yaml
+# Or MCP: artifactgraph_parity_check findingsPath=...
+
+parityFindings:
+  - id: password.min
+    field: password
+    surfaces: [register, change-password]
+    severity: warn
+    observed:
+      - { surface: register, required: true, type: string, rules: { min: 8 } }
+      - { surface: change-password, required: true, type: string, rules: { min: 6 } }
+    options:
+      - { choice: A, label: "min:8 everywhere", canon: { min: 8 } }
+      - { choice: B, label: "keep drift + openQuestion" }
+      - { choice: C, label: defer }
+
+  - id: hotel.name.empty
+    field: name
+    surfaces: [create, edit, api.update]
+    severity: error
+    observed:
+      - { surface: create, type: string, empty: empty-string, required: true }
+      - { surface: edit, type: string, empty: null, required: false }
+      - { surface: api.update, type: string, empty: omit, required: false }
+    options:
+      - { choice: A, label: "null for empty (FE+BE)", canon: { empty: null } }
+      - { choice: B, label: "empty-string", canon: { empty: empty-string } }
+      - { choice: C, label: "omit when empty", canon: { empty: omit } }
+
+# Data-scope mismatch: screen shows X; action uses Y — WARN ONLY (no A/B/C)
+contextOrphans:
+  - id: hotel-list.send-unrelated
+    hostSurface: hotel-list
+    screenData: [hotel, room, amenity]
+    action:
+      id: send-report
+      label: Send / Export CSV
+      kind: toolbar
+      usesData: [order]
+    reason: "Màn hiển thị hotel+room+amenity; action gửi/export order — data không thuộc screenData"

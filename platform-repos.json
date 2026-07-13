@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "description": "Workspace map for artifactgraph — project roots relative to workspaceRoot (or ARTIFACTGRAPH_WORKSPACE).",
+  "description": "Workspace map for artifactgraph — roots relative to workspaceRoot (or ARTIFACTGRAPH_WORKSPACE).",
   "workspaceRoot": "..",
   "defaultGroup": "platform-bases",
   "groups": {
     "platform-bases": {
-      "description": "Workspace base templates — FE / BE / fullstack",
+      "description": "Workspace base templates — FE / BE / fullstack / MCP tooling",
       "primary": "portal",
       "projects": [
         "portal",
@@ -15,7 +15,8 @@
         "fast-api-base",
         "api",
         "integration",
-        "line"
+        "line",
+        "artifactgraph"
       ]
     }
   },
@@ -39,14 +40,14 @@
       "role": "fullstack",
       "stack": "nuxt4-nest",
       "repo": "nuxt_nest",
-      "description": "Nuxt 4 + NestJS monorepo"
+      "description": "Base Nuxt 4 + NestJS monorepo"
     },
     "next-nest": {
       "root": "next_nest",
       "role": "fullstack",
       "stack": "nextjs-nest",
       "repo": "next_nest",
-      "description": "Next.js + NestJS monorepo"
+      "description": "Base Next.js + NestJS monorepo"
     },
     "fast-api-base": {
       "root": "fast-api-base",
@@ -67,14 +68,21 @@
       "role": "backend",
       "stack": "dotnet-integration",
       "repo": "integration",
-      "description": "Base .NET OT gateway"
+      "description": "Base .NET (BE)"
     },
     "line": {
       "root": "line",
       "role": "client",
       "stack": "dotnet-line",
       "repo": "line",
-      "description": "Base WinForms line client"
+      "description": "Base WinForms — override in platform-repos.local.json for D:/workspace/line"
+    },
+    "artifactgraph": {
+      "root": ".",
+      "role": "tooling",
+      "stack": "mcp",
+      "repo": "artifactgraph",
+      "description": "Local MCP artifactgraph — gaps/tags/gen allowlist (raintr91/artifactgraph)"
     }
   }
 }

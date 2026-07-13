@@ -5,6 +5,9 @@ Local MCP for **platform-bases**: analyze specs/bullets vs registries, `needs-*`
 - GitHub: [raintr91/artifactgraph](https://github.com/raintr91/artifactgraph)
 - Design: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - **Install (Win/WSL):** [docs/INSTALL.md](./docs/INSTALL.md)
+- **Local-first flow:** [docs/INTERNALS.md](./docs/INTERNALS.md)
+- **Parity (legacy drift):** [docs/PARITY.md](./docs/PARITY.md)
+- **Cursor examples:** [examples/cursor/](./examples/cursor/) (rule + skill + phase hooks)
 
 ---
 
@@ -42,7 +45,7 @@ Requires **Node ≥ 22** (uses `node:sqlite`).
 | Wire Cursor | `artifactgraph install --target=cursor` |
 | Wire product | `artifactgraph init` → `artifactgraph.json` |
 | Index registries | `artifactgraph rebuild` |
-| Preflight | `analyze` / `gaps` / `grill_check` |
+| Preflight | `analyze` / `gaps` / `grill_check` / `parity_check` |
 | Gen allowlist | `gen --command registryValidate` |
 
 ---
@@ -58,6 +61,7 @@ cd ~/workspace/portal
 artifactgraph init
 artifactgraph rebuild
 artifactgraph analyze --bullets "list hotels with status chip"
+artifactgraph parity --findings examples/parity/sample-findings.yaml
 artifactgraph gen --command registryValidate
 ```
 

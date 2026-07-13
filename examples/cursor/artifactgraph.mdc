@@ -1,0 +1,23 @@
+---
+description: artifactgraph MCP — local-first gaps/tags/gen; grill confirm WITHOUT cloud
+alwaysApply: true
+---
+# artifactgraph
+
+MCP: [raintr91/artifactgraph](https://github.com/raintr91/artifactgraph) · `/artifactgraph` · [ARTIFACTGRAPH](docs/operational/ARTIFACTGRAPH.md) · [INTERNALS](docs/operational/ARTIFACTGRAPH-INTERNALS.md)
+
+## Prefer local MCP (like CodeGraph prefers explore)
+
+On artifact skills (`/spec`, `/legacy-spec`, `/dev-grill-docs`, `/grill-with-docs`, `/prototype`, `/grill-prototype`, `/unit`, `/test`, `/platform-mark`):
+
+1. **`artifactgraph_analyze` / `grill_check` / `gaps` / `parity_check` first** — before dumping registries or inventing shell gen.
+2. **Grill + parity-drift questions are local** — common vs feature-only, confirm blocks, create≠edit / label / empty A/B/C. Ask the **member**.  
+   **context-orphan** = warn only (data action ≠ data màn); **không** ép A/B/C.
+3. **Gen** via `artifactgraph_gen` allowlist when `artifactgraph.json` exists (`genDry`, `gen`, `unitGen`, …).
+4. Cloud only **`cloudPromptSlice`**: missing Mo* slots, unknown legacy symbols (+ **`parityFindings` schema same turn**), unknown patterns — never full `registries/` or `codegen/templates/`.
+5. After implement → registry promote + `artifactgraph_remember` (`kind=grill|parity`).
+### If MCP / index missing
+
+Ask: *"Chưa wire artifactgraph. Chạy `artifactgraph init` (và `rebuild`) trong repo / `curl …/install.sh`?"*
+
+Hooks: `platform-ai/extracts/artifactgraph-phase-hooks.md`

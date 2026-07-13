@@ -16,6 +16,7 @@ import { IndexStore } from './db/index-store.js'
 import { loadRegistries, indexRegistries } from './registry/load-registries.js'
 import { analyzeSpecFile } from './analyze/analyze-spec.js'
 import { analyzeBullets } from './analyze/analyze-bullets.js'
+import { parityCheck } from './analyze/parity-check.js'
 import { runAllowlistedCommand } from './gen/run-command.js'
 import { installCursorMcp } from './install/cursor-mcp.js'
 
@@ -44,6 +45,7 @@ Product repo (brownfield):
   rebuild  [--project <id>]
   analyze  [--project <id>] (--spec <path> | --bullets <text>)
   gaps     [--project <id>] (--spec <path> | --bullets <text>)
+  parity   [--project <id>] (--module <dir> | --findings <path>)
   gen      [--project <id>] --command <key> [--spec <path>]
 
 Env:
@@ -165,6 +167,27 @@ async function main(): Promise<void> {
     } else {
       console.log(JSON.stringify(result, null, 2))
     }
+    return
+  }
+
+  if (cmd === 'parity') {
+    const moduleDir = arg('--module')
+    const findingsPath = arg('--findings')
+    if (!moduleDir && !findingsPath) {
+      console.error('parity requires --module <dir> and/or --findings <path>')
+      usage()
+      return
+    }
+    const store = new IndexStore(ctx.root)
+    const result = parityCheck({
+      repoRoot: ctx.root,
+      projectId: ctx.id,
+      moduleDir,
+      findingsPath,
+      store,
+    })
+    store.close()
+    console.log(JSON.stringify(result, null, 2))
     return
   }
 
