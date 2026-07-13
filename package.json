@@ -1,0 +1,57 @@
+{
+  "name": "@platform/artifactgraph",
+  "version": "0.1.0",
+  "description": "Local MCP: analyze marks/registry/gaps + allowlisted codegen for platform-bases",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "artifactgraph": "./bin/artifactgraph.mjs",
+    "artifactgraph-mcp": "./bin/artifactgraph-mcp.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raintr91/artifactgraph.git"
+  },
+  "homepage": "https://github.com/raintr91/artifactgraph#readme",
+  "bugs": {
+    "url": "https://github.com/raintr91/artifactgraph/issues"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "stacks",
+    "platform-repos.json",
+    "docs",
+    "install.sh",
+    "install.ps1",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "mcp": "node bin/artifactgraph-mcp.mjs",
+    "cli": "node bin/artifactgraph.mjs",
+    "init:portal": "node bin/artifactgraph.mjs init --project portal && node bin/artifactgraph.mjs rebuild --project portal",
+    "init:all": "node bin/artifactgraph.mjs init --project portal && node bin/artifactgraph.mjs init --project nextjs && node bin/artifactgraph.mjs init --project nuxt-nest && node bin/artifactgraph.mjs init --project next-nest && node bin/artifactgraph.mjs init --project fast-api-base && node bin/artifactgraph.mjs init --project api && node bin/artifactgraph.mjs init --project integration && node bin/artifactgraph.mjs init --project line"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "mcp",
+    "codegen",
+    "platform",
+    "artifactgraph"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  }
+}

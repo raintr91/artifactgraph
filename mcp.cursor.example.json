@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "artifactgraph": {
+      "command": "npx",
+      "args": ["tsx", "/home/vutv/workspace/artifactgraph/src/mcp/server.ts"]
+    }
+  }
+}

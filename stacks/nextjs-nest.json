@@ -1,0 +1,19 @@
+{
+  "stack": "nextjs-nest",
+  "mode": "brownfield",
+  "commands": {
+    "genDry": ["pnpm", "portal:gen:dry", "--spec", "{spec}"],
+    "nestGenDry": ["pnpm", "nest:gen:dry", "--spec", "{spec}"],
+    "contractGenDry": ["pnpm", "contract:gen:dry", "--spec", "{spec}"],
+    "registryValidate": ["pnpm", "portal:registry"],
+    "nestRegistry": ["pnpm", "nest:registry"]
+  },
+  "registries": [
+    "registries/design.registry.json",
+    "registries/nest-codegen.registry.json",
+    "registries/contract-field.registry.json"
+  ],
+  "gapSources": ["**/generated/HANDOFF.md"],
+  "specRoots": ["docs/features/yaml"],
+  "templates": { "root": "codegen/templates", "engine": "hbs" }
+}

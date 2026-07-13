@@ -1,0 +1,13 @@
+{
+  "stack": "dotnet-integration",
+  "mode": "brownfield",
+  "commands": {
+    "genDry": ["./codegen/runners/generate", "dry", "--spec", "{spec}"],
+    "gen": ["./codegen/runners/generate", "write", "--spec", "{spec}"],
+    "registryValidate": ["./codegen/runners/generate", "registry"]
+  },
+  "registries": ["registries/codegen.registry.json", "registries/common.registry.json"],
+  "gapSources": ["**/generated/HANDOFF.md"],
+  "specRoots": ["docs/features"],
+  "templates": { "root": "codegen/templates", "engine": "scriban" }
+}

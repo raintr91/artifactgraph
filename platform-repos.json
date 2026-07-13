@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "description": "Workspace map for artifactgraph — project roots relative to workspaceRoot (or ARTIFACTGRAPH_WORKSPACE).",
+  "workspaceRoot": "..",
+  "defaultGroup": "platform-bases",
+  "groups": {
+    "platform-bases": {
+      "description": "Workspace base templates — FE / BE / fullstack",
+      "primary": "portal",
+      "projects": [
+        "portal",
+        "nextjs",
+        "nuxt-nest",
+        "next-nest",
+        "fast-api-base",
+        "api",
+        "integration",
+        "line"
+      ]
+    }
+  },
+  "projects": {
+    "portal": {
+      "root": "portal",
+      "role": "frontend",
+      "stack": "nuxt4",
+      "repo": "portal",
+      "description": "Base Nuxt 4 (FE)"
+    },
+    "nextjs": {
+      "root": "nextjs",
+      "role": "frontend",
+      "stack": "nextjs",
+      "repo": "nextjs",
+      "description": "Base Next.js (FE)"
+    },
+    "nuxt-nest": {
+      "root": "nuxt_nest",
+      "role": "fullstack",
+      "stack": "nuxt4-nest",
+      "repo": "nuxt_nest",
+      "description": "Nuxt 4 + NestJS monorepo"
+    },
+    "next-nest": {
+      "root": "next_nest",
+      "role": "fullstack",
+      "stack": "nextjs-nest",
+      "repo": "next_nest",
+      "description": "Next.js + NestJS monorepo"
+    },
+    "fast-api-base": {
+      "root": "fast-api-base",
+      "role": "backend",
+      "stack": "fastapi",
+      "repo": "fast-api-base",
+      "description": "Base FastAPI (BE)"
+    },
+    "api": {
+      "root": "api",
+      "role": "backend",
+      "stack": "laravel",
+      "repo": "api",
+      "description": "Base Laravel 12 (BE)"
+    },
+    "integration": {
+      "root": "integration",
+      "role": "backend",
+      "stack": "dotnet-integration",
+      "repo": "integration",
+      "description": "Base .NET OT gateway"
+    },
+    "line": {
+      "root": "line",
+      "role": "client",
+      "stack": "dotnet-line",
+      "repo": "line",
+      "description": "Base WinForms line client"
+    }
+  }
+}

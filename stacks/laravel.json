@@ -1,0 +1,14 @@
+{
+  "stack": "laravel",
+  "mode": "brownfield",
+  "commands": {
+    "genDry": ["pnpm", "api:gen:dry", "--spec", "{spec}"],
+    "gen": ["pnpm", "api:gen", "--spec", "{spec}"],
+    "unitGenDry": ["pnpm", "api:unit-gen:dry", "--spec", "{spec}"],
+    "registryValidate": ["pnpm", "api:registry"]
+  },
+  "registries": ["registries/codegen.registry.json", "registries/unit-test.registry.json"],
+  "gapSources": ["**/generated/HANDOFF.md", "**/generated/codegen.manifest.json"],
+  "specRoots": ["docs/features"],
+  "templates": { "root": "unitgen/templates", "engine": "hbs" }
+}

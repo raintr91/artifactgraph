@@ -1,0 +1,18 @@
+{
+  "stack": "fastapi",
+  "mode": "brownfield",
+  "commands": {
+    "genDry": ["./codegen/runners/generate", "dry", "--spec", "{spec}"],
+    "gen": ["./codegen/runners/generate", "write", "--spec", "{spec}"],
+    "registryValidate": ["./codegen/runners/generate", "registry"],
+    "commonRegistry": ["./registries/validate-common", "validate"]
+  },
+  "registries": [
+    "registries/codegen.registry.json",
+    "registries/unit-test.registry.json",
+    "registries/common.registry.json"
+  ],
+  "gapSources": ["**/generated/HANDOFF.md"],
+  "specRoots": ["docs/features/yaml"],
+  "templates": { "root": "codegen/templates", "engine": "jinja2" }
+}
