@@ -18,7 +18,10 @@ platform-repos.json              ← map projectId → absolute repo root
 
 ## Local-first flow
 
-1. `init` → write `artifactgraph.json` in product repo (commands + registry paths)
+1. `init` → wire agents (Cursor / Claude / Kilo MCP)
+2. `init-project` → write `artifactgraph.json` in product repo (commands + registry paths)
+3. `rebuild` → index registries into `.artifactgraph/`
+4. `analyze` / `parity` → local gaps; cloud only gets `cloudPromptSlice`
 2. `rebuild` → fill `.artifactgraph/index.db` from registries (git still SSOT)
 3. `analyze` / `grill_check` → gaps + draft tags + `cloudPromptSlice` (small)
 4. Member confirm → `remember` into SQLite

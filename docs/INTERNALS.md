@@ -57,13 +57,14 @@ Chi tiết copy-paste: [`platform-ai/extracts/artifactgraph-phase-hooks.md`](../
 | Tool / CLI | Module |
 |------------|--------|
 | `projects` | `config/platform-repos.ts` → `loadPlatformReposMap` |
-| `init` | `config/load-config.ts` → `writeBrownfieldConfig` |
+| `init` (CLI agents) | `install/agents.ts` + `install/prompt.ts` — multi-select ↑↓ · Space |
+| `init-project` / MCP `artifactgraph_init` | `config/load-config.ts` → `writeBrownfieldConfig` |
 | `rebuild` | `registry/load-registries.ts` + `db/index-store.ts` |
 | `analyze` / `gaps` | `analyze/analyze-spec.ts`, `analyze-bullets.ts` |
 | `grill_check` / `remember` | `analyze/grill-check.ts` (+ parity when `kind=parity`) |
 | `parity_check` / CLI `parity` | `analyze/parity-check.ts` · [PARITY.md](./PARITY.md) |
 | `gen` | `gen/run-command.ts` → allowlist spawn |
-| Cursor install | `install/cursor-mcp.ts` |
+| Package bootstrap | `install.sh` / `install.ps1` · member guide [INIT.md](./INIT.md) |
 
 Boot: `bin/artifactgraph-mcp.mjs` → `mcp/server.ts` → `mcp/tools.ts`.
 

@@ -3,9 +3,9 @@
  *
  * After packaging:
  *   curl install.sh | sh
- *   artifactgraph version
- *   artifactgraph install --target=cursor --yes
- *   artifactgraph init --project portal
+ *   artifactgraph init                         # agents (↑↓ · Space · Enter)
+ *   artifactgraph init --target=cursor,claude --yes
+ *   artifactgraph init-project --project portal
  */
 
 import { createRequire } from 'node:module'
@@ -18,7 +18,7 @@ import { analyzeSpecFile } from './analyze/analyze-spec.js'
 import { analyzeBullets } from './analyze/analyze-bullets.js'
 import { parityCheck } from './analyze/parity-check.js'
 import { runAllowlistedCommand } from './gen/run-command.js'
-import { installCursorMcp } from './install/cursor-mcp.js'
+import { installAgents, AGENT_IDS } from './install/agents.js'
 
 const require = createRequire(import.meta.url)
 
@@ -34,19 +34,23 @@ function pkgVersion(): string {
 function usage(): void {
   console.log(`artifactgraph ${pkgVersion()}
 
-Install / Cursor:
-  version
-  install --target=cursor [--yes] [--wsl] [--mcp-file <path>]
+Wire agents (global by default — not per product repo):
+  init [--target=cursor,claude,kilo|auto|all] [--location=global|local] [--yes] [--wsl]
+       [--print-config <agent>] [--mcp-file <path>]
+       # no flags → TTY multi-select (↑↓ · Space · Enter)
+  install …   # deprecated alias → init
 
 Product repo (brownfield):
   projects
-  init     [--project <id>] [--stack <id>] [--force]   # default: cwd
-  status   [--project <id>]                            # default: cwd
-  rebuild  [--project <id>]
-  analyze  [--project <id>] (--spec <path> | --bullets <text>)
-  gaps     [--project <id>] (--spec <path> | --bullets <text>)
-  parity   [--project <id>] (--module <dir> | --findings <path>)
-  gen      [--project <id>] --command <key> [--spec <path>]
+  init-project [--project <id>] [--stack <id>] [--force]   # default: cwd
+  status       [--project <id>]
+  rebuild      [--project <id>]
+  analyze      [--project <id>] (--spec <path> | --bullets <text>)
+  gaps         [--project <id>] (--spec <path> | --bullets <text>)
+  parity       [--project <id>] (--module <dir> | --findings <path>)
+  gen          [--project <id>] --command <key> [--spec <path>]
+
+Docs: docs/INIT.md · docs/INSTALL.md
 
 Env:
   ARTIFACTGRAPH_WORKSPACE   folder that contains portal/, nextjs/, …
@@ -55,6 +59,8 @@ Env:
 }
 
 function arg(flag: string): string | undefined {
+  const eq = process.argv.find((a) => a.startsWith(`${flag}=`))
+  if (eq) return eq.slice(flag.length + 1) || undefined
   const i = process.argv.indexOf(flag)
   return i >= 0 ? process.argv[i + 1] : undefined
 }
@@ -75,6 +81,56 @@ function resolveRepoContext(): { id: string; root: string; stack: string } {
   return { id: path.basename(root), root, stack }
 }
 
+async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<void> {
+  if (opts.deprecatedAlias) {
+    console.error('note: `install` is deprecated — use `artifactgraph init`')
+  }
+  // Back-compat: old `init --project` meant product brownfield
+  if (arg('--project') || arg('--stack') || has('--force')) {
+    console.error(
+      'note: product repo wire moved to `artifactgraph init-project` (routing this call)',
+    )
+    await runInitProject()
+    return
+  }
+  try {
+    const result = await installAgents({
+      target: arg('--target'),
+      location: (arg('--location') as 'global' | 'local' | undefined) ?? undefined,
+      yes: has('--yes'),
+      useWsl: has('--wsl'),
+      mcpFile: arg('--mcp-file'),
+      printConfig: arg('--print-config'),
+    })
+    if (arg('--print-config')) return
+    console.log(
+      `Wired artifactgraph → ${result.targets.join(', ') || '(none)'} (${result.location})`,
+    )
+    for (const w of result.written) {
+      console.log(`  ${w.agent}: ${w.path}`)
+    }
+    for (const s of result.skipped) console.log(`  skip: ${s}`)
+    console.log(`Agents: ${AGENT_IDS.join(' | ')}`)
+    console.log('Restart agent(s), then try tool artifactgraph_projects')
+    console.log(
+      '(Product repo: cd <repo> && artifactgraph init-project && artifactgraph rebuild)',
+    )
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : err)
+    process.exit(1)
+  }
+}
+
+async function runInitProject(): Promise<void> {
+  const ctx = resolveRepoContext()
+  const dest = writeBrownfieldConfig(ctx.root, {
+    stack: ctx.stack,
+    projectId: ctx.id,
+    force: has('--force'),
+  })
+  console.log(`Wrote ${dest} (stack=${ctx.stack})`)
+}
+
 async function main(): Promise<void> {
   const cmd = process.argv[2]
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') usage()
@@ -85,19 +141,13 @@ async function main(): Promise<void> {
     return
   }
 
+  if (cmd === 'init') {
+    await runInitAgents()
+    return
+  }
+
   if (cmd === 'install') {
-    const target = arg('--target') ?? 'cursor'
-    if (target !== 'cursor') {
-      console.error(`Unknown --target ${target} (only cursor supported in v0.1)`)
-      process.exit(1)
-    }
-    const mcpFile = installCursorMcp({
-      mcpFile: arg('--mcp-file'),
-      useWsl: has('--wsl'),
-      yes: has('--yes'),
-    })
-    console.log(`Wrote Cursor MCP config: ${mcpFile}`)
-    console.log('Restart Cursor / reload MCP, then try tool artifactgraph_projects')
+    await runInitAgents({ deprecatedAlias: true })
     return
   }
 
@@ -107,14 +157,8 @@ async function main(): Promise<void> {
     return
   }
 
-  if (cmd === 'init') {
-    const ctx = resolveRepoContext()
-    const dest = writeBrownfieldConfig(ctx.root, {
-      stack: ctx.stack,
-      projectId: ctx.id,
-      force: has('--force'),
-    })
-    console.log(`Wrote ${dest} (stack=${ctx.stack})`)
+  if (cmd === 'init-project') {
+    await runInitProject()
     return
   }
 

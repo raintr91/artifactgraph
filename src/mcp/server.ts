@@ -28,8 +28,10 @@ export async function main(): Promise<void> {
   await server.connect(transport)
 }
 
-// Only auto-start when this file is the process entrypoint
-const isDirect = process.argv[1]?.includes('mcp/server')
+// Auto-start when this file is the process entrypoint OR when bin/*-mcp.mjs imports us.
+// Prefer bin launcher calling main() explicitly; this is a safety net.
+const entry = process.argv[1] ?? ''
+const isDirect = entry.includes('mcp/server') || entry.includes('artifactgraph-mcp')
 if (isDirect) {
   main().catch((err) => {
     console.error(err)

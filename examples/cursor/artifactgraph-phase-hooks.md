@@ -4,7 +4,7 @@
 
 ## Shared protocol (every artifact skill)
 
-1. If MCP available: `artifactgraph_status` / ensure `artifactgraph.json` (`init` once).
+1. If MCP available: `artifactgraph_status` / ensure `artifactgraph.json` (`init-project` once per product repo). Agents: `artifactgraph init` once per machine.
 2. **Local:** `artifactgraph_analyze` or `artifactgraph_grill_check` (spec and/or bullets); after legacy archaeology also **`artifactgraph_parity_check`**.
 3. Show `askUser[]` to member — A/B/C for grill + **parity-drift** only. **Do not** call cloud for these.  
    `context-orphan` = show as warning; **no** A/B/C.

@@ -18,6 +18,6 @@ On artifact skills (`/spec`, `/legacy-spec`, `/dev-grill-docs`, `/grill-with-doc
 5. After implement → registry promote + `artifactgraph_remember` (`kind=grill|parity`).
 ### If MCP / index missing
 
-Ask: *"Chưa wire artifactgraph. Chạy `artifactgraph init` (và `rebuild`) trong repo / `curl …/install.sh`?"*
+Ask: *"Chưa wire artifactgraph. Chạy `artifactgraph init` (agents) rồi trong repo `init-project` + `rebuild` / `curl …/install.sh`?"*
 
 Hooks: `platform-ai/extracts/artifactgraph-phase-hooks.md`

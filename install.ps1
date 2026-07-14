@@ -32,10 +32,10 @@ curl -fsSL https://raw.githubusercontent.com/$repo/$ref/install.sh | bash
 
   Write-Host ""
   Write-Host "Configuring Cursor MCP to call WSL artifactgraph..."
-  & wsl.exe -e bash -lc "artifactgraph install --target=cursor --yes --wsl --mcp-file `$(wslpath '$env:USERPROFILE')/.cursor/mcp.json"
+  & wsl.exe -e bash -lc "artifactgraph init --target=auto --yes --wsl --mcp-file `$(wslpath '$env:USERPROFILE')/.cursor/mcp.json"
   if ($LASTEXITCODE -ne 0) {
     Write-Warning "Could not auto-write mcp.json. From WSL run:"
-    Write-Warning "  artifactgraph install --target=cursor --yes --wsl --mcp-file /mnt/c/Users/<you>/.cursor/mcp.json"
+    Write-Warning "  artifactgraph init --target=cursor --yes --wsl --mcp-file /mnt/c/Users/<you>/.cursor/mcp.json"
   }
 
   Write-Host "Done. Restart Cursor, then try MCP tool artifactgraph_projects."
@@ -91,5 +91,5 @@ node "%~dp0artifactgraph.mjs" %*
 "@ | Set-Content -Path $cmdShim -Encoding ASCII
 
 Write-Host "Run: artifactgraph version"
-Write-Host "Then: artifactgraph install --target=cursor --yes"
+Write-Host "Then: artifactgraph init --target=auto --yes   # or cursor,claude,kilo  (docs/INIT.md)"
 Write-Host "Or: npx --yes github:$repo"

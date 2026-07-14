@@ -43,10 +43,10 @@ export function registerTools(server: McpServer): void {
     },
   )
 
-  /** Brownfield init: write artifactgraph.json into a product repo. */
+  /** Brownfield: write artifactgraph.json into a product repo (CLI: init-project). */
   server.tool(
     'artifactgraph_init',
-    'Wire brownfield artifactgraph.json into a platform project (does not copy templates)',
+    'Wire brownfield artifactgraph.json into a platform project (CLI: artifactgraph init-project; agents use CLI init)',
     {
       projectId: z.string().describe('e.g. portal, nextjs, fast-api-base'),
       force: z.boolean().optional().describe('Overwrite existing artifactgraph.json'),

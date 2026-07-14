@@ -1,26 +1,35 @@
-# Install — Linux/WSL vs Windows
+# Package bootstrap (curl / irm)
+
+> **Member workflow (agents + product):** xem **[INIT.md](./INIT.md)** — lệnh chính là `artifactgraph init` / `init-project`.
 
 Repo: [raintr91/artifactgraph](https://github.com/raintr91/artifactgraph)
 
-Mirrors CodeGraph UX: **curl** on Linux, **irm** on Windows (prefers WSL).
+## Ba bước
+
+| Bước | Lệnh | Việc |
+|------|------|------|
+| 1 | `curl …/install.sh \| bash` | CLI trên PATH |
+| 2 | **`artifactgraph init`** | Wire Cursor / Claude / Kilo (↑↓ · Space) |
+| 3 | **`artifactgraph init-project`** | `artifactgraph.json` trong từng base |
 
 ## Linux / WSL
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/raintr91/artifactgraph/main/install.sh | bash
-# new shell if needed
 artifactgraph version
-artifactgraph install --target=cursor --yes
+artifactgraph init                    # interactive agents
+# artifactgraph init --yes
+cd ~/workspace/portal && artifactgraph init-project && artifactgraph rebuild
 ```
 
-Uninstall:
+Uninstall package:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/raintr91/artifactgraph/main/install.sh | bash -s -- --uninstall
 ```
 
-Defaults: install → `~/.artifactgraph`, link → `~/.local/bin/artifactgraph`.  
-If `~/workspace/portal` exists, writes `workspace.path` automatically.
+Defaults: tree → `~/.artifactgraph`, link → `~/.local/bin/artifactgraph`.  
+Nếu có `~/workspace/portal` → ghi `workspace.path`.
 
 ## Windows (PowerShell)
 
@@ -28,59 +37,16 @@ If `~/workspace/portal` exists, writes `workspace.path` automatically.
 irm https://raw.githubusercontent.com/raintr91/artifactgraph/main/install.ps1 | iex
 ```
 
-- If **WSL** is available: runs Linux `install.sh` inside WSL, then wires Cursor MCP with `--wsl` (Cursor on Win → MCP via `wsl.exe`).
-- Else: native clone under `%LOCALAPPDATA%\artifactgraph` (needs Node ≥ 22 + git + npm).
+WSL có sẵn → chạy `install.sh` trong WSL rồi gợi ý `artifactgraph init`.
 
-Force native Win: `$env:ARTIFACTGRAPH_USE_WSL='0'; irm … | iex`
-
-## npx (no global install)
+## npx
 
 ```bash
-npx --yes github:raintr91/artifactgraph artifactgraph version
-# after clone locally:
 cd /path/to/artifactgraph && npm i && npm run build
-node bin/artifactgraph.mjs install --target=cursor --yes
+node bin/artifactgraph.mjs init --yes
+node bin/artifactgraph.mjs init-project --project portal
 ```
 
-## Per product repo
+## Alias
 
-```bash
-cd ~/workspace/portal   # or any base
-artifactgraph init
-artifactgraph rebuild
-artifactgraph status
-```
-
-Or by map id:
-
-```bash
-artifactgraph init --project portal
-artifactgraph rebuild --project portal
-```
-
-Set bases folder if not auto-detected:
-
-```bash
-export ARTIFACTGRAPH_WORKSPACE=$HOME/workspace
-```
-
-## Cursor MCP
-
-`artifactgraph install --target=cursor --yes` merges into `~/.cursor/mcp.json`.
-
-Windows Cursor + WSL install:
-
-```bash
-artifactgraph install --target=cursor --yes --wsl --mcp-file /mnt/c/Users/<you>/.cursor/mcp.json
-```
-
-Restart Cursor → tools `artifactgraph_*`.
-
-## Dev checkout (this monorepo sibling)
-
-```bash
-cd ~/workspace/artifactgraph
-npm install && npm run build
-./bin/artifactgraph.mjs version
-./bin/artifactgraph.mjs install --target=cursor --yes
-```
+`artifactgraph install` → deprecated alias của `init` (agents).

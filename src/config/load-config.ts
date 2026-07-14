@@ -25,7 +25,7 @@ export function requireRepoConfig(repoRoot: string): ArtifactgraphConfig {
   const cfg = loadRepoConfig(repoRoot)
   if (!cfg) {
     throw new Error(
-      `Missing ${CONFIG_NAME} in ${repoRoot}. Run: npx tsx src/cli.ts init --project <id>`,
+      `Missing ${CONFIG_NAME} in ${repoRoot}. Run: artifactgraph init-project`,
     )
   }
   return cfg

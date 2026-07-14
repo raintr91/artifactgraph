@@ -10,21 +10,34 @@ disable-model-invocation: true
 Package: [raintr91/artifactgraph](https://github.com/raintr91/artifactgraph)
 
 **Hub:** [ARTIFACTGRAPH](docs/operational/ARTIFACTGRAPH.md) · [INTERNALS](docs/operational/ARTIFACTGRAPH-INTERNALS.md)  
-**Hooks:** `platform-ai/extracts/artifactgraph-phase-hooks.md` · rule `artifactgraph.mdc`
+**Init guide:** package `docs/INIT.md` · hooks: `artifactgraph-phase-hooks.md` · rule `artifactgraph.mdc`
 
-## Install (once)
+## Setup (once / machine + per product)
 
 ```bash
-# WSL/Linux
+# Package on PATH
 curl -fsSL https://raw.githubusercontent.com/raintr91/artifactgraph/main/install.sh | bash
-artifactgraph install --target=cursor --yes
+
+# Wire agents — interactive ↑↓ · Space · Enter (global by default)
+artifactgraph init
+# artifactgraph init --yes
+# artifactgraph init --target=cursor,claude,kilo --yes
+
+# Wire THIS product repo
+cd ~/workspace/portal   # or nextjs, …
+artifactgraph init-project
+artifactgraph rebuild
 ```
 
 ```powershell
 irm https://raw.githubusercontent.com/raintr91/artifactgraph/main/install.ps1 | iex
 ```
 
-Per repo: `artifactgraph init` · `artifactgraph rebuild`
+| Lệnh | Phạm vi |
+|------|---------|
+| `init` | Agents (Cursor / Claude / Kilo) — **không** phải từng feature repo |
+| `init-project` | `artifactgraph.json` trong base hiện tại |
+| `install` | Alias cũ của `init` (deprecated) |
 
 ## Local-first protocol
 
@@ -43,12 +56,14 @@ analyze / grill_check / parity_check  →  member A/B/C (LOCAL)  →  gen allowl
 
 ## Tools
 
-`artifactgraph_projects` · `init` · `rebuild` · `analyze` · `gaps` · `grill_check` · **`parity_check`** · `remember` (`kind=grill|parity`) · `gen` · `status`
+`artifactgraph_projects` · `init` (MCP = product brownfield) · `rebuild` · `analyze` · `gaps` · `grill_check` · **`parity_check`** · `remember` (`kind=grill|parity`) · `gen` · `status`
 
 ## Parity / context-orphan
 
 After `/legacy-spec`: `parity_check` ingest `parityFindings[]` + `contextOrphans[]`.  
 - **parity-drift** → `askUser` A/B/C (ép thống nhất) + `remember`  
-- **context-orphan** → warn only (`usesData` ⊄ `screenData`); không confirm. Extract `legacy/parity.md`.## Phase skills
+- **context-orphan** → warn only (`usesData` ⊄ `screenData`); không confirm. Extract `legacy/parity.md`.
 
-See **artifactgraph-phase-hooks.md** — `/legacy-spec`, `/dev-grill-docs`, `/prototype`, `/unit`, `/test`, … embed the same protocol.
+## Phase skills
+
+See **artifactgraph-phase-hooks.md**.
