@@ -21,7 +21,7 @@ curl -fsSL https://raw.githubusercontent.com/raintr91/artifactgraph/main/install
 # Wire agents — interactive ↑↓ · Space · Enter (global by default)
 artifactgraph init
 # artifactgraph init --yes
-# artifactgraph init --target=cursor,claude,kilo --yes
+# artifactgraph init --target=cursor,claude,codex,opencode --yes
 
 # Wire THIS product repo
 cd ~/workspace/portal   # or nextjs, …

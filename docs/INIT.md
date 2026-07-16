@@ -29,13 +29,19 @@ artifactgraph init — wire MCP into agents
 
 Which agents should get artifactgraph MCP?
   (↑↓ move · Space toggle · a all · Enter confirm)
- ❯ ◉ Cursor  (detected)
-   ◯ Claude Code
-   ◉ Kilo Code  (detected)
+ ❯ ◉ Claude Code  (detected)
+   ◉ Cursor  (detected)
+   ◯ Codex CLI
+   ◯ opencode
+   ◯ Hermes Agent
+   ◯ Gemini CLI
+   ◉ Antigravity IDE  (detected)
+   ◯ Kiro
+   ◯ Kilo Code
 
 Install location?
- ❯ ● local — .cursor / .claude.json / .kilocode in this repo only (recommended — MCP only in this workspace)
-   ○ global — ~/.cursor · … (all projects; loads tool schemas into every chat)
+ ❯ ● local — project configs only (codex/hermes/antigravity need global)
+   ○ global — home configs for all projects
 ```
 
 | Phím | Việc |
@@ -48,33 +54,41 @@ Install location?
 
 Agent **detected** (đã có thư mục/`mcp` trước đó) được pre-check sẵn.
 
+Parity với [CodeGraph](https://github.com/colbymchenry/codegraph): Claude · Cursor · Codex · opencode · Hermes · Gemini · Antigravity · Kiro — cộng thêm **Kilo Code**.
+
 ### Non-interactive (CI / script)
 
 ```bash
 artifactgraph init --yes                              # auto-detect, global
-artifactgraph init --target=cursor,claude,kilo --yes
+artifactgraph init --target=cursor,claude,codex,opencode --yes
 artifactgraph init --target=auto --location=local --yes
-artifactgraph init --print-config kilo                # in snippet, không ghi file
+artifactgraph init --print-config codex               # in snippet, không ghi file
 ```
 
 | Flag | Giá trị | Mặc định |
 |------|---------|----------|
-| `--target` | `auto` · `all` · `none` · csv `cursor,claude,kilo` | prompt / với `--yes` = `auto` |
+| `--target` | `auto` · `all` · `none` · csv (`claude,cursor,codex,opencode,hermes,gemini,antigravity,kiro,kilo`; alias `agy`) | prompt / với `--yes` = `auto` |
 | `--location` | `global` · `local` | interactive: **local**; `--yes` không kèm flag: `global` (CI back-compat) |
 | `--yes` | bỏ prompt | — |
 | `--wsl` | Cursor Win → chạy MCP qua `wsl.exe` | — |
-| `--print-config <id>` | in JSON snippet | — |
+| `--print-config <id>` | in JSON/TOML/YAML snippet | — |
 | `--mcp-file <path>` | ghi thẳng 1 file (legacy, coi như cursor) | — |
 
 ### File được ghi
 
 | Agent | `--location=global` | `--location=local` |
 |-------|---------------------|--------------------|
-| Cursor | `~/.cursor/mcp.json` | `./.cursor/mcp.json` |
 | Claude Code | `~/.claude.json` (+ optional `~/.claude/settings.json` allow `mcp__artifactgraph__*`) | `./.claude.json` |
+| Cursor | `~/.cursor/mcp.json` | `./.cursor/mcp.json` |
+| Codex CLI | `~/.codex/config.toml` (`[mcp_servers.artifactgraph]`) | — (global only) |
+| opencode | `~/.config/opencode/opencode.jsonc` (`mcp.artifactgraph`) | `./opencode.jsonc` |
+| Hermes Agent | `$HERMES_HOME/config.yaml` (`mcp_servers` + `platform_toolsets.cli`) | — (global only) |
+| Gemini CLI | `~/.gemini/settings.json` | `./.gemini/settings.json` |
+| Antigravity IDE | `~/.gemini/config/mcp_config.json` (fallback legacy `…/antigravity/…`) | — (global only) |
+| Kiro | `~/.kiro/settings/mcp.json` | `./.kiro/settings/mcp.json` |
 | Kilo Code | `~/.kilocode/mcp.json` | `./.kilocode/mcp.json` |
 
-Entry MCP (stdio):
+Entry MCP (stdio) cho Cursor / Claude / Gemini / Kiro / Kilo:
 
 ```json
 {
@@ -88,7 +102,9 @@ Entry MCP (stdio):
 }
 ```
 
-Sau khi ghi: **restart** Cursor / Claude / Kilo → thử tool `artifactgraph_projects`.
+Khác biệt shape: Antigravity **không** có `type`; opencode dùng `mcp.<name>` + `command: [bin, …args]`; Codex = TOML; Hermes = YAML.
+
+Sau khi ghi: **restart** agent → thử tool `artifactgraph_projects`.
 
 ### `init` vs `init-project` — ví dụ nhầm
 
