@@ -37,7 +37,8 @@ function usage(): void {
   console.log(`artifactgraph ${pkgVersion()}
 
 Wire agents (global by default — not per product repo):
-  init [--target=cursor,claude,kilo|auto|all] [--location=global|local] [--yes] [--wsl]
+  init [--target=claude,cursor,codex,opencode,hermes,gemini,antigravity,kiro,kilo|auto|all]
+       [--location=global|local] [--yes] [--wsl]
        [--print-config <agent>] [--mcp-file <path>]
        # no flags → TTY multi-select (↑↓ · Space · Enter)
   install …   # deprecated alias → init

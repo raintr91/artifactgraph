@@ -1,27 +1,76 @@
 /**
  * Wire artifactgraph MCP into agent configs (CodeGraph-style `install --target=`).
  *
- * Agents: cursor | claude | kilo
- * Interactive TTY: ↑↓ + Space toggle + Enter (like CodeGraph)
+ * Agents (CodeGraph parity + Kilo):
+ *   claude | cursor | codex | opencode | hermes | gemini | antigravity | kiro | kilo
+ *
+ * Interactive TTY: ↑↓ + Space toggle + Enter
  * Non-interactive: --yes / --target=csv|auto|all
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { packageRoot } from '../config/platform-repos.js'
 import { checkboxPrompt, selectPrompt } from './prompt.js'
+import { buildTomlTable, upsertTomlTable } from './toml.js'
 
-export type AgentId = 'cursor' | 'claude' | 'kilo'
+export type AgentId =
+  | 'claude'
+  | 'cursor'
+  | 'codex'
+  | 'opencode'
+  | 'hermes'
+  | 'gemini'
+  | 'antigravity'
+  | 'kiro'
+  | 'kilo'
+
 export type InstallLocation = 'global' | 'local'
 
-export const AGENT_IDS: AgentId[] = ['cursor', 'claude', 'kilo']
+/** Order matches CodeGraph multiselect, then Kilo. */
+export const AGENT_IDS: AgentId[] = [
+  'claude',
+  'cursor',
+  'codex',
+  'opencode',
+  'hermes',
+  'gemini',
+  'antigravity',
+  'kiro',
+  'kilo',
+]
 
 const AGENT_LABEL: Record<AgentId, string> = {
-  cursor: 'Cursor',
   claude: 'Claude Code',
+  cursor: 'Cursor',
+  codex: 'Codex CLI',
+  opencode: 'opencode',
+  hermes: 'Hermes Agent',
+  gemini: 'Gemini CLI',
+  antigravity: 'Antigravity IDE',
+  kiro: 'Kiro',
   kilo: 'Kilo Code',
 }
+
+/** Accept short aliases in --target= */
+const AGENT_ALIASES: Record<string, AgentId> = {
+  claude: 'claude',
+  cursor: 'cursor',
+  codex: 'codex',
+  opencode: 'opencode',
+  hermes: 'hermes',
+  gemini: 'gemini',
+  antigravity: 'antigravity',
+  agy: 'antigravity',
+  'google-antigravity': 'antigravity',
+  kiro: 'kiro',
+  kilo: 'kilo',
+}
+
+/** Codex / Hermes / Antigravity: global-only (same as CodeGraph). */
+const GLOBAL_ONLY: ReadonlySet<AgentId> = new Set(['codex', 'hermes', 'antigravity'])
 
 export interface InstallOptions {
   /** csv / auto / all / single id */
@@ -42,16 +91,13 @@ export interface InstallResult {
   skipped: string[]
 }
 
-/** Build stdio MCP entry (shared shape for cursor/claude/kilo). */
-export function buildMcpEntry(opts: { useWsl?: boolean } = {}): {
-  type?: string
-  command: string
-  args: string[]
-} {
+type StdioEntry = { type?: string; command: string; args: string[] }
+
+/** Build stdio MCP entry. */
+export function buildMcpEntry(opts: { useWsl?: boolean } = {}): StdioEntry {
   const root = packageRoot()
   const mcpJs = path.join(root, 'bin', 'artifactgraph-mcp.mjs')
   const nodeBin = process.execPath
-  // Cursor-on-Windows + MCP code in WSL: must go through wsl.exe
   const winMcp = detectWindowsCursorMcpPath()
   const forceWsl =
     opts.useWsl ||
@@ -73,6 +119,17 @@ export function buildMcpEntry(opts: { useWsl?: boolean } = {}): {
   }
 }
 
+/**
+ * Antigravity mcp_config schema forbids unknown keys (no `type`).
+ * Cursor/Claude/Kilo/Gemini/Kiro keep optional type: stdio.
+ */
+export function mcpEntryForAgent(agent: AgentId, entry: StdioEntry): StdioEntry {
+  if (agent === 'antigravity') {
+    return { command: entry.command, args: entry.args }
+  }
+  return entry
+}
+
 /** @deprecated use buildMcpEntry */
 export function buildArtifactgraphMcpEntry(opts: { useWsl?: boolean } = {}) {
   const e = buildMcpEntry(opts)
@@ -80,7 +137,6 @@ export function buildArtifactgraphMcpEntry(opts: { useWsl?: boolean } = {}) {
 }
 
 export function defaultCursorMcpPath(): string {
-  // Cursor on Windows reads %USERPROFILE%\.cursor\mcp.json — not WSL ~/.cursor
   const win = detectWindowsCursorMcpPath()
   if (win) return win
   return path.join(os.homedir(), '.cursor', 'mcp.json')
@@ -105,36 +161,173 @@ export function detectWindowsCursorMcpPath(): string | undefined {
   return undefined
 }
 
+/**
+ * Antigravity: prefer unified `~/.gemini/config/mcp_config.json` (CodeGraph),
+ * fall back to legacy `~/.gemini/antigravity/mcp_config.json`.
+ */
+export function defaultAntigravityMcpPath(): string {
+  const win = detectWindowsAntigravityMcpPath()
+  if (win) return win
+  const unified = path.join(os.homedir(), '.gemini', 'config', 'mcp_config.json')
+  const legacy = path.join(os.homedir(), '.gemini', 'antigravity', 'mcp_config.json')
+  const migrated = path.join(os.homedir(), '.gemini', 'config', 'mcp_config.json.migrated')
+  if (existsSync(migrated) || existsSync(unified) || existsSync(path.dirname(unified))) {
+    return unified
+  }
+  if (existsSync(legacy) || existsSync(path.dirname(legacy))) return legacy
+  return unified
+}
+
+export function detectWindowsAntigravityMcpPath(): string | undefined {
+  const usersRoot = '/mnt/c/Users'
+  if (!existsSync(usersRoot)) return undefined
+  try {
+    const names = readdirSync(usersRoot).filter(
+      (n) => !n.startsWith('.') && n !== 'Public' && n !== 'Default' && n !== 'All Users',
+    )
+    for (const name of names) {
+      const base = path.join(usersRoot, name, '.gemini')
+      const unified = path.join(base, 'config', 'mcp_config.json')
+      const unifiedDir = path.join(base, 'config')
+      if (existsSync(unified) || existsSync(unifiedDir)) return unified
+      const legacy = path.join(base, 'antigravity', 'mcp_config.json')
+      const legacyDir = path.join(base, 'antigravity')
+      if (existsSync(legacy) || existsSync(legacyDir)) return legacy
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined
+}
+
+function xdgConfigHome(): string {
+  const xdg = process.env.XDG_CONFIG_HOME?.trim()
+  return xdg && xdg.length > 0 ? xdg : path.join(os.homedir(), '.config')
+}
+
+function hermesHome(): string {
+  return process.env.HERMES_HOME
+    ? path.resolve(process.env.HERMES_HOME)
+    : path.join(os.homedir(), '.hermes')
+}
+
+function opencodeConfigPath(location: InstallLocation, cwd: string): string {
+  const dir = location === 'global' ? path.join(xdgConfigHome(), 'opencode') : cwd
+  const jsonc = path.join(dir, 'opencode.jsonc')
+  const json = path.join(dir, 'opencode.json')
+  if (existsSync(jsonc)) return jsonc
+  if (existsSync(json)) return json
+  return jsonc
+}
+
+export function supportsLocation(agent: AgentId, location: InstallLocation): boolean {
+  if (location === 'local' && GLOBAL_ONLY.has(agent)) return false
+  return true
+}
+
 export function agentConfigPath(
   agent: AgentId,
   location: InstallLocation,
   cwd = process.cwd(),
 ): string {
   if (location === 'local') {
-    if (agent === 'cursor') return path.join(cwd, '.cursor', 'mcp.json')
-    if (agent === 'claude') return path.join(cwd, '.claude.json')
-    return path.join(cwd, '.kilocode', 'mcp.json')
+    switch (agent) {
+      case 'cursor':
+        return path.join(cwd, '.cursor', 'mcp.json')
+      case 'claude':
+        return path.join(cwd, '.claude.json')
+      case 'gemini':
+        return path.join(cwd, '.gemini', 'settings.json')
+      case 'kiro':
+        return path.join(cwd, '.kiro', 'settings', 'mcp.json')
+      case 'opencode':
+        return opencodeConfigPath('local', cwd)
+      case 'kilo':
+        return path.join(cwd, '.kilocode', 'mcp.json')
+      case 'codex':
+        return path.join(os.homedir(), '.codex', 'config.toml')
+      case 'hermes':
+        return path.join(hermesHome(), 'config.yaml')
+      case 'antigravity':
+        return defaultAntigravityMcpPath()
+    }
   }
-  if (agent === 'cursor') return defaultCursorMcpPath()
-  if (agent === 'claude') return path.join(os.homedir(), '.claude.json')
-  return path.join(os.homedir(), '.kilocode', 'mcp.json')
+
+  switch (agent) {
+    case 'cursor':
+      return defaultCursorMcpPath()
+    case 'claude':
+      return path.join(os.homedir(), '.claude.json')
+    case 'codex':
+      return path.join(os.homedir(), '.codex', 'config.toml')
+    case 'opencode':
+      return opencodeConfigPath('global', cwd)
+    case 'hermes':
+      return path.join(hermesHome(), 'config.yaml')
+    case 'gemini':
+      return path.join(os.homedir(), '.gemini', 'settings.json')
+    case 'antigravity':
+      return defaultAntigravityMcpPath()
+    case 'kiro':
+      return path.join(os.homedir(), '.kiro', 'settings', 'mcp.json')
+    case 'kilo':
+      return path.join(os.homedir(), '.kilocode', 'mcp.json')
+  }
 }
 
 /** Heuristic: agent looks installed / previously configured. */
 export function detectAgents(cwd = process.cwd()): AgentId[] {
   const found: AgentId[] = []
-  if (
-    existsSync(path.join(os.homedir(), '.cursor')) ||
-    existsSync(path.join(cwd, '.cursor'))
-  ) {
-    found.push('cursor')
-  }
+
   if (
     existsSync(path.join(os.homedir(), '.claude.json')) ||
     existsSync(path.join(os.homedir(), '.claude')) ||
-    existsSync(path.join(cwd, '.claude.json'))
+    existsSync(path.join(cwd, '.claude.json')) ||
+    existsSync(path.join(cwd, '.mcp.json'))
   ) {
     found.push('claude')
+  }
+  if (
+    existsSync(path.join(os.homedir(), '.cursor')) ||
+    existsSync(path.join(cwd, '.cursor')) ||
+    Boolean(detectWindowsCursorMcpPath())
+  ) {
+    found.push('cursor')
+  }
+  if (existsSync(path.join(os.homedir(), '.codex'))) {
+    found.push('codex')
+  }
+  if (
+    existsSync(path.join(xdgConfigHome(), 'opencode')) ||
+    existsSync(path.join(cwd, 'opencode.jsonc')) ||
+    existsSync(path.join(cwd, 'opencode.json'))
+  ) {
+    found.push('opencode')
+  }
+  if (existsSync(hermesHome()) || existsSync(path.join(hermesHome(), 'config.yaml'))) {
+    found.push('hermes')
+  }
+  if (
+    existsSync(path.join(os.homedir(), '.gemini')) ||
+    existsSync(path.join(cwd, '.gemini')) ||
+    existsSync(path.join(cwd, 'GEMINI.md'))
+  ) {
+    found.push('gemini')
+  }
+  if (
+    existsSync(path.join(os.homedir(), '.gemini', 'antigravity')) ||
+    existsSync(path.join(os.homedir(), '.gemini', 'config')) ||
+    existsSync(path.join(os.homedir(), '.antigravity-ide-server')) ||
+    existsSync(path.join(cwd, '.gemini', 'antigravity')) ||
+    Boolean(detectWindowsAntigravityMcpPath())
+  ) {
+    found.push('antigravity')
+  }
+  if (
+    existsSync(path.join(os.homedir(), '.kiro')) ||
+    existsSync(path.join(cwd, '.kiro'))
+  ) {
+    found.push('kiro')
   }
   if (
     existsSync(path.join(os.homedir(), '.kilocode')) ||
@@ -143,6 +336,7 @@ export function detectAgents(cwd = process.cwd()): AgentId[] {
   ) {
     found.push('kilo')
   }
+
   return found
 }
 
@@ -153,35 +347,183 @@ export function parseTargets(raw: string | undefined, detected: AgentId[]): Agen
   if (v === 'none') return []
   const out: AgentId[] = []
   for (const part of v.split(/[,\s]+/).filter(Boolean)) {
-    if (!AGENT_IDS.includes(part as AgentId)) {
-      throw new Error(`Unknown target "${part}". Known: ${AGENT_IDS.join(', ')}, auto, all`)
+    const id = AGENT_ALIASES[part]
+    if (!id) {
+      throw new Error(
+        `Unknown target "${part}". Known: ${AGENT_IDS.join(', ')}, agy, auto, all`,
+      )
     }
-    if (!out.includes(part as AgentId)) out.push(part as AgentId)
+    if (!out.includes(id)) out.push(id)
   }
   return out
 }
 
 export function formatPrintConfig(agent: AgentId, location: InstallLocation): string {
+  if (!supportsLocation(agent, location)) {
+    return `# ${AGENT_LABEL[agent]} has no project-local config — use --location=global.\n`
+  }
   const file = agentConfigPath(agent, location)
-  const entry = buildMcpEntry()
+  const entry = mcpEntryForAgent(agent, buildMcpEntry())
+
+  if (agent === 'codex') {
+    const block = buildTomlTable('mcp_servers.artifactgraph', {
+      command: entry.command,
+      args: entry.args,
+    })
+    return `# Add to ${file}\n\n${block}\n`
+  }
+
+  if (agent === 'opencode') {
+    const doc = {
+      $schema: 'https://opencode.ai/config.json',
+      mcp: {
+        artifactgraph: {
+          type: 'local',
+          command: [entry.command, ...entry.args],
+          enabled: true,
+        },
+      },
+    }
+    return `# Add to ${file}\n\n${JSON.stringify(doc, null, 2)}\n`
+  }
+
+  if (agent === 'hermes') {
+    return [
+      `# Add to ${file}`,
+      '',
+      'mcp_servers:',
+      '  artifactgraph:',
+      `    command: ${JSON.stringify(entry.command)}`,
+      '    args:',
+      ...entry.args.map((a) => `      - ${JSON.stringify(a)}`),
+      '    timeout: 120',
+      '    connect_timeout: 60',
+      '    enabled: true',
+      '',
+      'platform_toolsets:',
+      '  cli:',
+      '    - hermes-cli',
+      '    - mcp-artifactgraph',
+      '',
+    ].join('\n')
+  }
+
   const doc = { mcpServers: { artifactgraph: entry } }
   return `# Add to ${file}\n\n${JSON.stringify(doc, null, 2)}\n`
 }
 
 /** Merge artifactgraph into mcpServers JSON file. */
-export function mergeMcpJson(
-  file: string,
-  entry: { command: string; args: string[]; type?: string },
-): string {
+export function mergeMcpJson(file: string, entry: StdioEntry): string {
   mkdirSync(path.dirname(file), { recursive: true })
   let doc: { mcpServers?: Record<string, unknown> } = {}
   if (existsSync(file)) {
-    doc = JSON.parse(readFileSync(file, 'utf8')) as typeof doc
+    const raw = readFileSync(file, 'utf8').trim()
+    if (raw) {
+      doc = JSON.parse(raw) as typeof doc
+    }
   }
   doc.mcpServers ??= {}
   doc.mcpServers.artifactgraph = entry
   writeFileSync(file, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
   return file
+}
+
+function mergeCodexToml(file: string, entry: StdioEntry): string {
+  mkdirSync(path.dirname(file), { recursive: true })
+  const existing = existsSync(file) ? readFileSync(file, 'utf8') : ''
+  const block = buildTomlTable('mcp_servers.artifactgraph', {
+    command: entry.command,
+    args: entry.args,
+  })
+  const { content } = upsertTomlTable(existing, 'mcp_servers.artifactgraph', block)
+  writeFileSync(file, content.endsWith('\n') ? content : `${content}\n`, 'utf8')
+  return file
+}
+
+/** Strip // line comments enough for simple .jsonc round-trips. */
+function parseJsonLoose(raw: string): Record<string, unknown> {
+  const stripped = raw.replace(/^\s*\/\/.*$/gm, '')
+  if (!stripped.trim()) return {}
+  return JSON.parse(stripped) as Record<string, unknown>
+}
+
+function mergeOpencodeConfig(file: string, entry: StdioEntry): string {
+  mkdirSync(path.dirname(file), { recursive: true })
+  let doc: Record<string, unknown> = { $schema: 'https://opencode.ai/config.json' }
+  if (existsSync(file)) {
+    const raw = readFileSync(file, 'utf8')
+    if (raw.trim()) {
+      try {
+        doc = parseJsonLoose(raw)
+      } catch {
+        /* keep schema default */
+      }
+    }
+  }
+  doc.$schema ??= 'https://opencode.ai/config.json'
+  const mcp = (doc.mcp as Record<string, unknown> | undefined) ?? {}
+  mcp.artifactgraph = {
+    type: 'local',
+    command: [entry.command, ...entry.args],
+    enabled: true,
+  }
+  doc.mcp = mcp
+  writeFileSync(file, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
+  return file
+}
+
+function mergeHermesYaml(file: string, entry: StdioEntry): string {
+  mkdirSync(path.dirname(file), { recursive: true })
+  let doc: Record<string, unknown> = {}
+  if (existsSync(file)) {
+    const raw = readFileSync(file, 'utf8')
+    if (raw.trim()) {
+      try {
+        doc = (parseYaml(raw) as Record<string, unknown>) ?? {}
+      } catch {
+        doc = {}
+      }
+    }
+  }
+
+  const servers = (doc.mcp_servers as Record<string, unknown> | undefined) ?? {}
+  servers.artifactgraph = {
+    command: entry.command,
+    args: entry.args,
+    timeout: 120,
+    connect_timeout: 60,
+    enabled: true,
+  }
+  doc.mcp_servers = servers
+
+  const toolsets = (doc.platform_toolsets as Record<string, unknown> | undefined) ?? {}
+  const cli = Array.isArray(toolsets.cli) ? [...(toolsets.cli as unknown[])] : ['hermes-cli']
+  if (!cli.includes('mcp-artifactgraph')) cli.push('mcp-artifactgraph')
+  toolsets.cli = cli
+  doc.platform_toolsets = toolsets
+
+  writeFileSync(file, stringifyYaml(doc), 'utf8')
+  return file
+}
+
+function writeAgentConfig(
+  agent: AgentId,
+  location: InstallLocation,
+  entry: StdioEntry,
+): string {
+  const file = agentConfigPath(agent, location)
+  const shaped = mcpEntryForAgent(agent, entry)
+
+  switch (agent) {
+    case 'codex':
+      return mergeCodexToml(file, shaped)
+    case 'opencode':
+      return mergeOpencodeConfig(file, shaped)
+    case 'hermes':
+      return mergeHermesYaml(file, shaped)
+    default:
+      return mergeMcpJson(file, shaped)
+  }
 }
 
 /** Claude Code: optional auto-allow for artifactgraph tools. */
@@ -248,11 +590,11 @@ async function promptInteractive(detected: AgentId[]): Promise<{
     choices: [
       {
         value: 'local',
-        name: 'local — .cursor / .claude.json / .kilocode in this repo only (recommended — MCP only here)',
+        name: 'local — project configs only (codex/hermes/antigravity need global)',
       },
       {
         value: 'global',
-        name: 'global — ~/.cursor · … (all projects; tool schemas in every chat)',
+        name: 'global — home configs for all projects',
       },
     ],
   })
@@ -266,9 +608,12 @@ async function promptInteractive(detected: AgentId[]): Promise<{
  */
 export async function installAgents(opts: InstallOptions = {}): Promise<InstallResult> {
   if (opts.printConfig) {
-    const id = opts.printConfig.toLowerCase() as AgentId
-    if (!AGENT_IDS.includes(id)) {
-      throw new Error(`Unknown agent "${opts.printConfig}". Known: ${AGENT_IDS.join(', ')}`)
+    const key = opts.printConfig.toLowerCase()
+    const id = AGENT_ALIASES[key]
+    if (!id) {
+      throw new Error(
+        `Unknown agent "${opts.printConfig}". Known: ${AGENT_IDS.join(', ')}, agy`,
+      )
     }
     process.stdout.write(formatPrintConfig(id, opts.location ?? 'global'))
     return { targets: [id], location: opts.location ?? 'global', written: [], skipped: [] }
@@ -301,13 +646,18 @@ export async function installAgents(opts: InstallOptions = {}): Promise<InstallR
     location = opts.location ?? picked.location
   }
 
-  const entry = buildMcpEntry({ useWsl: opts.useWsl })
+  const baseEntry = buildMcpEntry({ useWsl: opts.useWsl })
   const written: InstallResult['written'] = []
   const skipped: string[] = []
 
   for (const agent of targets) {
-    const file = agentConfigPath(agent, location)
-    written.push({ agent, path: mergeMcpJson(file, entry) })
+    if (!supportsLocation(agent, location)) {
+      skipped.push(
+        `${agent}: no project-local config — re-run with --location=global`,
+      )
+      continue
+    }
+    written.push({ agent, path: writeAgentConfig(agent, location, baseEntry) })
     if (agent === 'claude') {
       const perm = mergeClaudePermissions(location)
       if (perm) written.push({ agent: 'claude', path: `${perm} (permissions)` })
