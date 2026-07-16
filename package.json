@@ -1,6 +1,6 @@
 {
   "name": "@platform/artifactgraph",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "description": "Local MCP: analyze marks/registry/gaps + allowlisted codegen for platform-bases",
   "type": "module",
   "main": "./dist/index.js",

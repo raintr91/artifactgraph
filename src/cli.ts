@@ -13,11 +13,13 @@ import path from 'node:path'
 import { resolveProject, loadPlatformReposMap, detectStack, packageRoot } from './config/platform-repos.js'
 import { requireRepoConfig, writeBrownfieldConfig, loadRepoConfig } from './config/load-config.js'
 import { IndexStore } from './db/index-store.js'
-import { loadRegistries, indexRegistries } from './registry/load-registries.js'
+import { loadRegistries, indexRegistries, registryIndexSummary } from './registry/load-registries.js'
 import { analyzeSpecFile } from './analyze/analyze-spec.js'
 import { analyzeBullets } from './analyze/analyze-bullets.js'
 import { parityCheck } from './analyze/parity-check.js'
 import { runAllowlistedCommand } from './gen/run-command.js'
+import { resolveSpecPath, pathResolutionSummary } from './config/resolve-paths.js'
+import { indexLexicons, suggestTags } from './lexicon/load-lexicon.js'
 import { installAgents, AGENT_IDS } from './install/agents.js'
 
 const require = createRequire(import.meta.url)
@@ -47,6 +49,7 @@ Product repo (brownfield):
   rebuild      [--project <id>]
   analyze      [--project <id>] (--spec <path> | --bullets <text>)
   gaps         [--project <id>] (--spec <path> | --bullets <text>)
+  suggest      [--project <id>] --lane fe|docs|plans [--bullets <text>]
   parity       [--project <id>] (--module <dir> | --findings <path>)
   gen          [--project <id>] --command <key> [--spec <path>]
 
@@ -165,13 +168,15 @@ async function main(): Promise<void> {
   const ctx = resolveRepoContext()
 
   if (cmd === 'status') {
+    const cfg = loadRepoConfig(ctx.root)
     console.log(
       JSON.stringify(
         {
           id: ctx.id,
           root: ctx.root,
           stack: ctx.stack,
-          config: loadRepoConfig(ctx.root),
+          config: cfg,
+          paths: cfg ? pathResolutionSummary(ctx.root, cfg) : null,
           packageRoot: packageRoot(),
         },
         null,
@@ -186,8 +191,14 @@ async function main(): Promise<void> {
     const store = new IndexStore(ctx.root)
     const loaded = loadRegistries(ctx.root, cfg)
     indexRegistries(store, loaded)
+    const lexicon = indexLexicons(store, ctx.root, cfg)
+    const summary = { ...registryIndexSummary(loaded), ...lexicon }
+    store.setMeta('indexSummary', JSON.stringify(summary))
     store.close()
-    console.log(`Rebuilt index for ${ctx.id}: ${Object.keys(loaded.byFile).join(', ')}`)
+    console.log(
+      `Rebuilt index for ${ctx.id}: files=${summary.files} shells=${summary.designShells} common=${summary.commonIds} unit=${summary.unitPatterns} e2e=${summary.e2eBundles} lexiconHints=${summary.registryTagHints ?? 0} testTypes=${summary.testTypes ?? 0}`,
+    )
+    console.log(JSON.stringify(pathResolutionSummary(ctx.root, cfg), null, 2))
     return
   }
 
@@ -197,7 +208,7 @@ async function main(): Promise<void> {
     const spec = arg('--spec')
     const bullets = arg('--bullets')
     const result = spec
-      ? analyzeSpecFile(ctx.root, cfg, spec, store)
+      ? analyzeSpecFile(ctx.root, cfg, resolveSpecPath(ctx.root, cfg, spec), store)
       : analyzeBullets(ctx.root, cfg, bullets ?? '', store)
     store.close()
     if (cmd === 'gaps') {
@@ -231,6 +242,23 @@ async function main(): Promise<void> {
       store,
     })
     store.close()
+    console.log(JSON.stringify(result, null, 2))
+    return
+  }
+
+  if (cmd === 'suggest') {
+    const cfg = requireRepoConfig(ctx.root)
+    const lane = (arg('--lane') ?? 'fe') as 'fe' | 'docs' | 'plans' | 'be'
+    if (!['fe', 'docs', 'plans', 'be'].includes(lane)) {
+      console.error('--lane must be fe | docs | plans | be')
+      process.exit(1)
+    }
+    const result = suggestTags({
+      repoRoot: ctx.root,
+      cfg,
+      lane,
+      bullets: arg('--bullets') ?? '',
+    })
     console.log(JSON.stringify(result, null, 2))
     return
   }

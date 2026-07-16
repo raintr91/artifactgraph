@@ -3,11 +3,12 @@
  *
  * Security / token goal:
  * - Agent must NOT invent shell commands
- * - MCP substitutes {spec} etc. then runs fixed argv arrays
+ * - MCP substitutes {spec} etc. then expands @projectId paths, then runs fixed argv
  */
 
 import { spawnSync } from 'node:child_process'
 import type { ArtifactgraphConfig } from '../types.js'
+import { expandArgvPaths } from '../config/resolve-paths.js'
 
 export interface RunCommandResult {
   commandKey: string
@@ -46,7 +47,7 @@ export function runAllowlistedCommand(
     const keys = Object.keys(cfg.commands).join(', ')
     throw new Error(`Command "${commandKey}" not allowlisted. Known: ${keys}`)
   }
-  const argv = materializeArgv(template, vars)
+  const argv = expandArgvPaths(repoRoot, materializeArgv(template, vars))
   const bin = argv[0]
   if (!bin) throw new Error(`Empty argv for command "${commandKey}"`)
   const args = argv.slice(1)

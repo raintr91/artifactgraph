@@ -1,0 +1,23 @@
+---
+description: Platform — ~200 lines/file, ~20 lines/function; split when exceeded
+globs: "{pages,components,composables,services,stores,models,validations,tests}/**/*.{vue,ts}"
+alwaysApply: false
+---
+
+# Code Size
+
+Soft limits — split in the same PR when exceeded.
+
+| Vượt ~200 dòng/file | Tách |
+|---------------------|------|
+| Page `.vue` | Composable + sub-component |
+| Composable | `useXxxForm`, `useXxxList`, … |
+| Service / store | File theo aggregate; action phức tạp → service |
+| E2E spec | Page Object + helper |
+
+| Vượt ~20 dòng/function | Tách |
+|------------------------|------|
+| Submit handler | `buildPayload`, `validateBeforeSubmit`, `handleApiError` |
+| Map/transform | Pure helpers / computed |
+
+No padding files with blank lines. Component split: `platform-component-split.mdc`.

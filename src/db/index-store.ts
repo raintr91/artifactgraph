@@ -124,6 +124,13 @@ export class IndexStore {
       .run(key, value)
   }
 
+  getMeta(key: string): string | undefined {
+    const row = this.db.prepare(`SELECT value FROM meta WHERE key = ?`).get(key) as
+      | { value: string }
+      | undefined
+    return row?.value
+  }
+
   close(): void {
     this.db.close()
   }

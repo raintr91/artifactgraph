@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Optional: mirror .cursor/ SSOT → .kilo/ (when .kilo/ exists)
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+SSOT=".cursor"
+REGISTRY_SRC="$SSOT/extracts/extract-registry.json"
+
+if [ ! -d "$SSOT/skills" ] || [ ! -d "$SSOT/rules" ] || [ ! -d "$SSOT/extracts" ]; then
+  echo "cursor-export-kilo: missing $SSOT/{skills,rules,extracts} — abort" >&2
+  exit 1
+fi
+
+if [ ! -d ".kilo" ]; then
+  echo "cursor-export-kilo: no .kilo/ — nothing to export (SSOT is .cursor/)"
+  exit 0
+fi
+
+mirror_dir() {
+  local src="$1" dst="$2"
+  rm -rf "$dst"
+  mkdir -p "$dst"
+  if [ -d "$src" ] && [ -n "$(ls -A "$src" 2>/dev/null || true)" ]; then
+    cp -a "$src/." "$dst/"
+  fi
+}
+
+mirror_extracts() {
+  local dst="$1"
+  local prefix="$2"
+  rm -rf "$dst"
+  mkdir -p "$dst"
+  if [ -d "$SSOT/extracts" ] && [ -n "$(ls -A "$SSOT/extracts" 2>/dev/null || true)" ]; then
+    cp -a "$SSOT/extracts/." "$dst/"
+    rm -f "$dst/extract-registry.json"
+  fi
+  if [ -f "$REGISTRY_SRC" ]; then
+    sed "s|\.cursor/extracts/|${prefix}/|g" "$REGISTRY_SRC" > "$dst/extract-registry.json"
+  fi
+}
+
+mkdir -p .kilo/skills .kilo/instructions .kilo/extracts .kilo/command
+mirror_dir "$SSOT/skills" ".kilo/skills"
+mirror_dir "$SSOT/rules" ".kilo/instructions"
+mirror_extracts ".kilo/extracts" ".kilo/extracts"
+
+for d in "$SSOT/skills"/*/; do
+  [ -d "$d" ] || continue
+  name=$(basename "$d")
+  cat > ".kilo/command/$name.md" << EOF
+---
+description: /$name — mirrored from .cursor SSOT
+agent: code
+---
+Run the \$name skill. Read and follow .kilo/skills/$name/SKILL.md (synced from .cursor/skills/$name/SKILL.md).
+Context files referenced inside that skill must be respected.
+EOF
+done
+
+skill_count=$(find "$SSOT/skills" -name SKILL.md 2>/dev/null | wc -l)
+rule_count=$(find "$SSOT/rules" -name '*.mdc' 2>/dev/null | wc -l)
+extract_count=$(find "$SSOT/extracts" -type f ! -name 'extract-registry.json' 2>/dev/null | wc -l)
+
+echo "cursor-export-kilo: OK (.cursor → .kilo)"
+echo "  SSOT: $SSOT/skills ($skill_count), rules ($rule_count), extracts ($extract_count files)"
+echo "  .kilo: skills/, instructions/, extracts/, command/"
+echo "  (commit .cursor/; .kilo export is gitignored)"

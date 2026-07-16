@@ -3,3 +3,7 @@ dist/
 *.log
 node_modules/
 workspace.path
+__pycache__/
+*.pyc
+# Generated — node scripts/platform-workspace-from-repos.mjs --group=<lane>
+platform-*.code-workspace

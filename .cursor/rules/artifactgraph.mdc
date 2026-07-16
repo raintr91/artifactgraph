@@ -8,14 +8,14 @@ MCP package: repo này · `/artifactgraph` · `docs/INTERNALS.md` · `docs/INIT.
 
 **SSOT:** product `registries/*.json` + templates — MCP **indexes** + `artifactgraph_gen` only. Promote after review stays in product repo.
 
-**Token:** project `.cursor/mcp.json` (not Windows global). CLI: `gaps|status|gen|suggest`.
+**Token:** project `.cursor/mcp.json` (not Windows global). CLI: `parity|gaps|status|gen|suggest`.
 
 ## Prefer local MCP
 
 On product-repo artifact work (`/platform-mark`, `/prototype`, `/spec`, … — **mở đúng lane workspace**):
 
-1. **`analyze` / `grill_check` / `gaps`** before dumping registries.
-2. **Grill** = local A/B/C (member confirm).
+1. **`analyze` / `grill_check` / `gaps` / `parity_check`** before dumping registries.
+2. **Grill + parity-drift** = local A/B/C. **context-orphan** = warn only.
 3. **Gen** via `artifactgraph_gen` keys from product `artifactgraph.json` / `dsl.lanes`.
 4. Cloud only **`cloudPromptSlice`** — never full registries; never write registry from cloud.
 5. After review OK → **promote in product repo** → `rebuild` + `remember`.
