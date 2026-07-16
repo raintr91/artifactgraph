@@ -2,15 +2,97 @@
   "stack": "nuxt4",
   "mode": "brownfield",
   "commands": {
-    "genDry": ["pnpm", "portal:gen:dry", "--spec", "{spec}"],
-    "gen": ["pnpm", "portal:gen", "--spec", "{spec}"],
-    "unitGenDry": ["pnpm", "portal:unit-gen:dry", "--spec", "{spec}"],
-    "unitGen": ["pnpm", "portal:unit-gen", "--spec", "{spec}"],
-    "testcaseGenDry": ["pnpm", "testcase:gen:dry", "--", "{spec}"],
-    "registryValidate": ["pnpm", "portal:registry"],
-    "unitRegistry": ["pnpm", "portal:unit-registry"],
-    "e2eRegistry": ["pnpm", "portal:e2e-registry"],
-    "commonRegistry": ["pnpm", "platform-common:registry"]
+    "docsRender": [
+      "pnpm",
+      "--dir",
+      "@base-docs",
+      "docs:render"
+    ],
+    "docsRenderCommon": [
+      "pnpm",
+      "--dir",
+      "@base-docs",
+      "docs:render:common"
+    ],
+    "specSplit": [
+      "pnpm",
+      "--dir",
+      "@base-docs",
+      "spec:split",
+      "--",
+      "{spec}"
+    ],
+    "specSplitAll": [
+      "pnpm",
+      "--dir",
+      "@base-docs",
+      "spec:split:all"
+    ],
+    "specSplitCheck": [
+      "pnpm",
+      "--dir",
+      "@base-docs",
+      "spec:split:check",
+      "--",
+      "{spec}"
+    ],
+    "genDry": [
+      "pnpm",
+      "portal:gen:dry",
+      "--id",
+      "{spec}"
+    ],
+    "gen": [
+      "pnpm",
+      "portal:gen",
+      "--id",
+      "{spec}"
+    ],
+    "unitGenDry": [
+      "pnpm",
+      "portal:unit-gen:dry",
+      "--spec",
+      "{spec}"
+    ],
+    "unitGen": [
+      "pnpm",
+      "portal:unit-gen",
+      "--spec",
+      "{spec}"
+    ],
+    "testcaseGenDry": [
+      "pnpm",
+      "testcase:gen:dry",
+      "--id",
+      "{spec}"
+    ],
+    "testcaseGen": [
+      "pnpm",
+      "testcase:gen",
+      "--id",
+      "{spec}"
+    ],
+    "lifecycleSync": [
+      "pnpm",
+      "portal:lifecycle",
+      "sync"
+    ],
+    "registryValidate": [
+      "pnpm",
+      "portal:registry"
+    ],
+    "unitRegistry": [
+      "pnpm",
+      "portal:unit-registry"
+    ],
+    "e2eRegistry": [
+      "pnpm",
+      "portal:e2e-registry"
+    ],
+    "commonRegistry": [
+      "pnpm",
+      "platform-common:registry"
+    ]
   },
   "registries": [
     "registries/design.registry.json",
@@ -20,10 +102,97 @@
     "registries/page-lifecycle.registry.json"
   ],
   "gapSources": [
+    "@base-docs/product/**/generated/HANDOFF.md",
+    "@base-docs/product/**/generated/UNIT-HANDOFF.md",
+    "@base-docs/product/**/generated/codegen.manifest.json",
     "**/generated/HANDOFF.md",
     "**/generated/UNIT-HANDOFF.md",
     "**/generated/codegen.manifest.json"
   ],
-  "specRoots": ["docs/features/yaml", "docs/common/yaml"],
-  "templates": { "root": "codegen/templates", "engine": "hbs" }
+  "specRoots": [
+    "@base-docs/product",
+    "@base-tests/cases",
+    "@base-tests/suites"
+  ],
+  "templates": {
+    "root": "codegen/templates",
+    "engine": "hbs"
+  },
+  "dsl": {
+    "ssot": "product-repo",
+    "lanes": {
+      "docs": {
+        "genKeys": [
+          "specSplit",
+          "specSplitAll",
+          "docsRender",
+          "docsRenderCommon"
+        ],
+        "needsTags": [],
+        "note": "Reuse FE/unit/e2e tags; split IR + render BA md \u2014 no app codegen"
+      },
+      "fe": {
+        "registries": [
+          "registries/design.registry.json",
+          "registries/common.registry.json"
+        ],
+        "templates": "codegen/templates",
+        "genKeys": [
+          "genDry",
+          "gen"
+        ],
+        "needsTags": [
+          "#needs-component",
+          "#needs-ui",
+          "#shell:",
+          "#widget:"
+        ],
+        "note": "Review OK \u2192 promote design/common registry in product repo; rebuild index"
+      },
+      "unit": {
+        "registries": [
+          "registries/unit-test.registry.json"
+        ],
+        "genKeys": [
+          "unitGenDry",
+          "unitGen"
+        ],
+        "needsTags": [
+          "#needs-unit-test"
+        ],
+        "note": "Promote unit-test.registry.json after pattern OK"
+      },
+      "e2e": {
+        "registries": [
+          "registries/e2e-test.registry.json"
+        ],
+        "genKeys": [
+          "testcaseGenDry",
+          "testcaseGen"
+        ],
+        "needsTags": [
+          "#needs-testcase",
+          "#needs-e2e"
+        ],
+        "note": "{spec} = hub id (W-|TC-|CMP-|suite) for --id"
+      },
+      "lifecycle": {
+        "registries": [
+          "registries/page-lifecycle.registry.json"
+        ],
+        "genKeys": [
+          "lifecycleSync"
+        ],
+        "needsTags": []
+      }
+    }
+  },
+  "hubs": {
+    "docs": "base-docs",
+    "tests": "base-tests"
+  },
+  "vocabularies": {
+    "registryTags": "@base-docs/platform/toolchain/lexicon/registry-tags.en.txt",
+    "testTaxonomy": "@base-tests/catalog/lexicon/testcase-taxonomy.en.txt"
+  }
 }

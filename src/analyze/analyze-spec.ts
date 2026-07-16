@@ -10,8 +10,10 @@ import path from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import type { AnalyzeResult, ArtifactgraphConfig, Gap } from '../types.js'
 import { loadRegistries } from '../registry/load-registries.js'
+import { resolveSpecPath } from '../config/resolve-paths.js'
 import type { IndexStore } from '../db/index-store.js'
 import { parityCloudSchemaBlock } from './parity-check.js'
+import { isBeStack, isFeStack } from '../lexicon/infer-lane.js'
 
 interface SpecDoc {
   tags?: string[]
@@ -42,7 +44,7 @@ export function analyzeSpecFile(
   specPath: string,
   store?: IndexStore,
 ): AnalyzeResult {
-  const abs = path.isAbsolute(specPath) ? specPath : path.join(repoRoot, specPath)
+  const abs = resolveSpecPath(repoRoot, cfg, specPath)
   if (!existsSync(abs)) {
     throw new Error(`Spec not found: ${abs}`)
   }
@@ -52,20 +54,24 @@ export function analyzeSpecFile(
   const gaps: Gap[] = []
   const askUser: string[] = []
 
+  const fe = isFeStack(cfg)
+  const be = isBeStack(cfg)
+
   // --- codegen readiness ---
   if (!doc.codegen?.profile) {
     gaps.push({
       kind: 'missing-codegen-profile',
-      message: 'Missing codegen.profile — portal-gen / stack gen will refuse.',
+      message: 'Missing codegen.profile — stack gen will refuse.',
       source: abs,
       severity: 'error',
       confidence: 0.95,
     })
   }
 
-  // --- shell / pattern for FE-ish stacks ---
   const profile = doc.codegen?.profile
-  if (profile === 'list' || profile === 'create' || profile === 'edit') {
+
+  // --- shell / pattern for FE stacks only ---
+  if (fe && (profile === 'list' || profile === 'create' || profile === 'edit')) {
     if (!hasPrefix(tags, '#shell:')) {
       const suggested =
         profile === 'list' ? '#shell: DataListPage' : '#shell: DataFormPage'
@@ -91,21 +97,37 @@ export function analyzeSpecFile(
     }
   }
 
-  // --- columns without component → needs-component candidates ---
-  for (const col of doc.ui?.columns ?? []) {
-    if (col.key && !col.component) {
-      const tag = `#needs-component: cell-${col.key}:Mo${pascal(col.key)}:label`
+  // --- columns without component → FE only ---
+  if (fe) {
+    for (const col of doc.ui?.columns ?? []) {
+      if (col.key && !col.component) {
+        const tag = `#needs-component: cell-${col.key}:Mo${pascal(col.key)}:label`
+        gaps.push({
+          kind: 'needs-component',
+          message: `Column "${col.key}" has no component — prototype should implement or mark needs-component`,
+          suggestedTag: tag,
+          source: abs,
+          severity: 'warn',
+          confidence: 0.7,
+        })
+        askUser.push(
+          `[GRILL-MARK] Column ${col.key}: A) local cell  B) ${tag}  C) defer`,
+        )
+      }
+    }
+  }
+
+  // --- BE: endpoint/dto tags when api profile without marks ---
+  if (be && profile && !tags.some((t) => t.includes('#needs-endpoint'))) {
+    if (/(index|list|store|show|update|destroy|resource|api)/i.test(profile)) {
       gaps.push({
-        kind: 'needs-component',
-        message: `Column "${col.key}" has no component — prototype should implement or mark needs-component`,
-        suggestedTag: tag,
+        kind: 'registry-miss',
+        message: `BE profile=${profile} with no #needs-endpoint tag`,
+        suggestedTag: '#needs-endpoint',
         source: abs,
-        severity: 'warn',
-        confidence: 0.7,
+        severity: 'info',
+        confidence: 0.65,
       })
-      askUser.push(
-        `[GRILL-MARK] Column ${col.key}: A) local cell  B) ${tag}  C) defer`,
-      )
     }
   }
 
@@ -141,6 +163,16 @@ export function analyzeSpecFile(
         confidence: 1,
       })
     }
+    if (t.includes('#needs-endpoint') || t.includes('#needs-dto')) {
+      gaps.push({
+        kind: 'registry-miss',
+        message: `Spec already marks: ${t}`,
+        suggestedTag: t,
+        source: abs,
+        severity: 'info',
+        confidence: 1,
+      })
+    }
   }
 
   // --- non-legacy: confirm generated blocks with member (LOCAL, not cloud) ---
@@ -159,15 +191,24 @@ export function analyzeSpecFile(
     })
   }
 
-  // --- unit / e2e defaults when profile known but no test tags ---
-  if (profile === 'list' && regs.unitPatterns.length && !tags.some((t) => t.includes('#needs-unit') || t.includes('#unit:'))) {
-    gaps.push({
-      kind: 'needs-unit-test',
-      message: 'List profile with no unit-test tags — consider portal:unit-gen after prototype',
-      source: abs,
-      severity: 'info',
-      confidence: 0.6,
-    })
+  // --- unit hint (FE list or BE index) ---
+  if (
+    regs.unitPatterns.length &&
+    !tags.some((t) => t.includes('#needs-unit') || t.includes('#unit:'))
+  ) {
+    const unitProfile = fe && profile === 'list'
+    const beIndex = be && profile && /index|list/i.test(profile)
+    if (unitProfile || beIndex) {
+      gaps.push({
+        kind: 'needs-unit-test',
+        message: unitProfile
+          ? 'List profile with no unit-test tags — consider unit-gen after prototype'
+          : 'Index/list API with no unit-test tags — consider unit-gen',
+        source: abs,
+        severity: 'info',
+        confidence: 0.6,
+      })
+    }
   }
 
   const unresolved = gaps.filter((g) => g.confidence < 0.8 || g.severity !== 'info')

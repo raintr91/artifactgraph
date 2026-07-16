@@ -247,12 +247,12 @@ async function promptInteractive(detected: AgentId[]): Promise<{
     defaultIndex: 0,
     choices: [
       {
-        value: 'global',
-        name: 'global — ~/.cursor · ~/.claude.json · ~/.kilocode (all projects)',
+        value: 'local',
+        name: 'local — .cursor / .claude.json / .kilocode in this repo only (recommended — MCP only here)',
       },
       {
-        value: 'local',
-        name: 'local — .cursor / .claude.json / .kilocode in this repo only',
+        value: 'global',
+        name: 'global — ~/.cursor · … (all projects; tool schemas in every chat)',
       },
     ],
   })

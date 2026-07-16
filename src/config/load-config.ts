@@ -2,7 +2,8 @@
  * Load / write artifactgraph.json inside a product repo.
  *
  * Brownfield init does NOT copy templates — it only drops this config
- * (often cloned from stacks/<stack>.json) so MCP knows allowlisted commands.
+ * (often cloned from stacks/<stack>.json) so MCP knows allowlisted commands
+ * and optional dsl.lanes pointers. Registry JSON payloads stay in product git.
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'

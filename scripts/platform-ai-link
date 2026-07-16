@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Deprecated alias — SSOT is .cursor/; optional Kilo export only.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+echo "platform-ai-link: deprecated — use ./scripts/cursor-export-kilo" >&2
+exec "$ROOT/scripts/cursor-export-kilo"

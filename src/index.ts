@@ -4,7 +4,7 @@
  */
 
 export { createServer, main as startMcpServer } from './mcp/server.js'
-export { loadPlatformReposMap, resolveProject } from './config/platform-repos.js'
+export { loadPlatformReposMap, resolveProject, resolveHarnessProfile } from './config/platform-repos.js'
 export { analyzeSpecFile } from './analyze/analyze-spec.js'
 export { analyzeBullets } from './analyze/analyze-bullets.js'
 export {
@@ -18,3 +18,7 @@ export {
   scanModuleContextOrphans,
 } from './analyze/context-orphan.js'
 export { IndexStore } from './db/index-store.js'
+
+export { resolveConfigPath, resolveSpecPath, pathResolutionSummary } from './config/resolve-paths.js'
+export { suggestTags, loadRegistryTagsLexicon, loadTestTaxonomyLexicon } from './lexicon/load-lexicon.js'
+export { inferSuggestLane, isFeStack, isBeStack } from './lexicon/infer-lane.js'

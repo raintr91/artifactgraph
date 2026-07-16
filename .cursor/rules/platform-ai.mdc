@@ -1,0 +1,12 @@
+---
+description: MCP tooling lane — package + harness map; not FE/BE/docs implementation
+alwaysApply: true
+---
+
+# Platform AI (artifactgraph / tooling)
+
+- **Repo này** = MCP package + `platform-repos.json` harness map — không phải code product hay docs hub.
+- **Harness SSOT:** `.cursor/` tại **artifactgraph** (tooling); portal = code lane SSOT; `base-docs` / `base-tests` = hub SSOT.
+- **Một chat một lane:** implement app/spec/plans → mở workspace `code-fe` / `docs` / `tests`, không nhồi vào chat MCP.
+- **Sửa package:** `src/`, `docs/`, sync scripts, map — chi tiết `/platform-ai`.
+- **Product registries / gen:** MCP chỉ index + allowlist; SSOT vẫn trên product repo (`registries/*.json`).

@@ -1,8 +1,7 @@
 # Artifactgraph — phase hooks (local-first DSL)
 
 > Used by skill `/artifactgraph` and phase skills. Grill **confirm = local + member**, not cloud.  
-> **SSOT:** product repo `registries/*.json` + `codegen/templates` (+ skills/docs). MCP only **indexes** + runs **allowlisted** gen.  
-> **No legacy archaeology** — IR / greenfield + brownfield only.
+> **SSOT:** product repo `registries/*.json` + `codegen/templates` (+ skills/docs). MCP only **indexes** + runs **allowlisted** gen.
 
 ## DSL loop (every lane: FE · BE · unit · e2e · docs)
 
@@ -24,14 +23,14 @@
 | **e2e** | `testcaseGenDry`, `testcaseGen` | `e2e-test` registry (`{spec}` = testcase path) |
 | **lifecycle** | `lifecycleSync` | `page-lifecycle` registry |
 
-Cloud **không** viết registry. Promote = product docs + skill `/platform-mark`.
+Cloud **không** viết registry. Promote = docs `DESIGN-REGISTRY-PROMOTION` / `UNIT-REGISTRY-PROMOTION` / e2e docs + skill `/platform-mark`.
 
 ## Shared protocol (every artifact skill)
 
 1. If MCP available: `artifactgraph_status` / ensure `artifactgraph.json` (`init-project` once per product repo). Prefer **`artifactgraph init --location=local`**. Else CLI.
-2. **Local:** `artifactgraph_analyze` or `artifactgraph_grill_check`.
-3. Show `askUser[]` — A/B/C for grill confirms.
-4. On confirm: `artifactgraph_remember` (grill).
+2. **Local:** `artifactgraph_analyze` or `artifactgraph_grill_check`; after legacy also **`artifactgraph_parity_check`**.
+3. Show `askUser[]` — A/B/C for grill + **parity-drift** only. **context-orphan** = warn only.
+4. On confirm: `artifactgraph_remember` (`kind=grill|parity`).
 5. Gen only via `artifactgraph_gen` allowlisted keys; else documented `pnpm` fallback.
 6. Still missing implementation → **`cloudPromptSlice` only** — never full registries/templates.
 7. After implement: **promote in product repo** → `registryValidate` / lane registry cmds → `artifactgraph_rebuild`.
@@ -41,8 +40,15 @@ Cloud **không** viết registry. Promote = product docs + skill `/platform-mark
 ### `/spec`
 
 - Local: gắn tag chuẩn từ index (shell/common/unit/e2e đã học); `specSplit` / `docsRender` via MCP.
-- Confirm blocks/tags with member before gen.
+- Confirm blocks when `specOrigin` is **not** legacy.
 - Cloud: only unknown domain rules in `cloudPromptSlice`.
+- **Không** `portal:gen` app ở phase này (trừ khi skill nói rõ dry gate).
+
+### `/legacy-spec`
+
+- Local: trace + bundle; **`parity_check`**.
+- Cloud: **one turn** — slices + `parityFindings[]` + `contextOrphans[]`.
+- Gate: unresolved parity-drift → confirm before `/bqa-grill-docs`.
 
 ### `/dev-grill-docs`
 
@@ -83,7 +89,9 @@ Cloud **không** viết registry. Promote = product docs + skill `/platform-mark
 
 | Topic | Doc |
 |-------|-----|
-| Protocol + ownership | package `docs/INTERNALS.md` · hub `ARTIFACTGRAPH.md` |
-| Promote Mo* | product / hub DESIGN-REGISTRY-PROMOTION |
-| Unit promote | UNIT-REGISTRY-PROMOTION |
-| portal:gen | PORTAL-CODEGEN (product) |
+| Protocol + ownership | `base-docs/platform/toolchain/ARTIFACTGRAPH-INTERNALS.md` |
+| `#needs-component` | `NEEDS-COMPONENT-FLOW.md` |
+| Promote Mo* | `DESIGN-REGISTRY-PROMOTION.md` |
+| Unit promote | `UNIT-REGISTRY-PROMOTION.md` |
+| featureStatus | `.cursor/extracts/feature-lifecycle-status.md` |
+| portal:gen | `PORTAL-CODEGEN.md` |

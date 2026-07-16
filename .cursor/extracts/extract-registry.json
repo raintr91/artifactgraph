@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "bundles": {
+    "core": [
+      ".cursor/extracts/core/agent-discipline.md"
+    ],
+    "platform-ai": [
+      ".cursor/extracts/artifact-graph.md",
+      ".cursor/extracts/extract-registry.json"
+    ],
+    "platform-mark": [
+      ".cursor/extracts/core/agent-discipline.md",
+      ".cursor/extracts/platform-mark.md",
+      ".cursor/extracts/platform-mark-detect.md"
+    ],
+    "artifactgraph": [
+      ".cursor/extracts/core/agent-discipline.md",
+      ".cursor/extracts/artifactgraph-phase-hooks.md",
+      ".cursor/extracts/artifact-graph.md"
+    ]
+  }
+}

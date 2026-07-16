@@ -1,19 +1,38 @@
-# Artifactgraph — internals & local-first flow
+# Artifactgraph — internals & local-first DSL
 
 > Package: [raintr91/artifactgraph](https://github.com/raintr91/artifactgraph) · Install: [ARTIFACTGRAPH.md](./ARTIFACTGRAPH.md)  
-> SSOT skills/rules: `platform-ai/skills/artifactgraph/`, `platform-ai/rules/artifactgraph.mdc`
+> SSOT skills/rules: `platform-ai/skills/artifactgraph/`, `platform-ai/rules/artifactgraph.mdc`  
+> Phase checklist: [`artifactgraph-phase-hooks.md`](../../platform-ai/extracts/artifactgraph-phase-hooks.md)
 
-## Goal
+## Ownership (quan trọng)
 
-Trong mọi skill thao tác **artifact** (spec, grill, gen, mark, unit, test):
+| Layer | Where | Role |
+|-------|-------|------|
+| **Registries + templates (.hbs)** | Product repo (`registries/`, `codegen/templates`, …) | **SSOT** — promote sau member review |
+| **Skills / extracts / promotion docs** | Product `platform-ai/` (or stack equivalent) | Quy trình team |
+| **MCP artifactgraph** | Package + `.artifactgraph/index.db` | **Index** DSL ids/aliases + allowlisted gen + grill/parity memory |
+| **`artifactgraph.json`** | Product root | `commands` + `registries[]` paths + optional `dsl.lanes` map |
 
-1. **MCP local** làm tối đa (template, tag common đã có, gen allowlist, hỏi confirm A/B/C).
-2. **Không** gửi cloud cho bước hỏi grill / confirm block — đó là local + member.
-3. Cloud chỉ nhận **`cloudPromptSlice`** đã nén (thiếu lịch sử / slot Mo* chưa có / legacy class lạ).
-4. Xong → **đăng ký registry + `remember`** để lần sau khỏi hỏi lại.
+MCP **không** lưu registry riêng thay product. `rebuild` = đọc file git → SQLite index.
+
+## DSL loop
 
 ```text
-Skill → MCP local (do / askUser) → [optional cloudPromptSlice] → register local
+tags + index → artifactgraph_gen (local) → #needs-*?
+  → cloudPromptSlice / member → promote in product repo → rebuild + remember
+```
+
+Lần sau spec tương tự: gắn tag mẫu đã học → gen đúng template — gần như không cloud.
+
+## Goal (local vs cloud)
+
+1. **MCP local** tối đa (index match, gen allowlist, A/B/C).
+2. **Không** cloud cho grill confirm / block confirm.
+3. Cloud chỉ **`cloudPromptSlice`** (slot/pattern chưa có).
+4. Xong → **promote registry product** + `remember` + `rebuild`.
+
+```text
+Skill → MCP local (do / askUser / gen) → [optional cloudPromptSlice] → promote product → rebuild
 ```
 
 ---
@@ -22,33 +41,28 @@ Skill → MCP local (do / askUser) → [optional cloudPromptSlice] → register 
 
 | Việc | Local MCP + member | Cloud model |
 |------|-------------------|-------------|
-| Detect cột/block thiếu component | Có | Không |
-| Hỏi common vs chỉ feature (A/B/C) | Có | Không |
-| Confirm block khi **không** clone legacy | Có | Không |
-| **Parity** create≠edit / empty / FE≠BE confirm | Có (`parity_check`) | Không (chỉ emit `parityFindings` cùng archaeology) |
-| Gắn `#shell` / `#pattern` / common registry-hit | Có | Không |
-| `portal:gen` / `unit-gen` / `testcase:gen` allowlist | Có (`artifactgraph_gen`) | Không |
-| Wire Mo* **đã có** registry | Có | Không |
-| Implement Mo* / logic **chưa có** mẫu | Không | Có — chỉ slot thiếu |
-| Hiểu legacy class chưa từng analyze | Không | Có — nén path/symbol + câu hỏi |
+| Match shell/common/unit/e2e từ **index** | Có | Không |
+| Hỏi common vs feature-only (A/B/C) | Có | Không |
+| `specSplit` / `docsRender` / `portal:gen` / `unit-gen` / `testcase:gen` | Có (`artifactgraph_gen`) | Không |
+| Wire Mo* / pattern **đã** registry | Có | Không |
+| Implement Mo* / pattern **chưa** có | Không | Có — chỉ phần thiếu |
+| **Ghi** registry / hbs mới | Product skill + member (promote docs) | Không (MCP không SSOT) |
 
 ---
 
-## Phase hooks (skill)
+## Phase → commandKey (portal nuxt4)
 
-Chi tiết copy-paste: [`platform-ai/extracts/artifactgraph-phase-hooks.md`](../../platform-ai/extracts/artifactgraph-phase-hooks.md)
+| Skill / phase | Prefer `artifactgraph_gen` keys |
+|---------------|----------------------------------|
+| `/spec` | `specSplit`, `docsRender` (+ common variants) |
+| `/dev-grill-docs` · `/grill-with-docs` | `genDry` |
+| `/prototype` | `gen` |
+| `/unit` | `unitGenDry`, `unitGen` |
+| `/test` | `testcaseGenDry`, `testcaseGen` |
+| `/platform-mark` | `registryValidate`, `commonRegistry`, `unitRegistry`, `e2eRegistry` |
+| BE (api repo stack) | `gen` / `genDry` theo `stacks/laravel.json` (… ) |
 
-| Skill | Local first | Cloud chỉ khi |
-|-------|-------------|----------------|
-| `/spec` | Draft blocks/common UI đã biết | Domain rule mới |
-| `/legacy-spec` | Trace + **parity_check**; confirm drift local | Legacy class/flow lạ + **parityFindings[]** cùng turn |
-| `/dev-grill-docs` | Common candidates + A/B/C + genDry | Đặt tên Mo* mới mơ hồ |
-| `/grill-with-docs` | Reconcile gate + genDry | Conflict cần copy dài |
-| `/prototype` | gen allowlist; Mo* đã có | Chỉ `#needs-component` chưa có file |
-| `/grill-prototype` | HANDOFF table + ask | — |
-| `/unit` | unit-gen allowlist | Pattern unit chưa có |
-| `/test` | e2e gaps / testcase gen nếu có | Matcher mới |
-| `/platform-mark` | remember + registry validate | — |
+`{spec}` = bundle / `ir/spec.yaml` / **testcase yaml path** tùy key (xem `dsl.lanes.*.note`).
 
 ---
 
@@ -56,17 +70,14 @@ Chi tiết copy-paste: [`platform-ai/extracts/artifactgraph-phase-hooks.md`](../
 
 | Tool / CLI | Module |
 |------------|--------|
-| `projects` | `config/platform-repos.ts` → `loadPlatformReposMap` |
-| `init` (CLI agents) | `install/agents.ts` + `install/prompt.ts` — multi-select ↑↓ · Space |
-| `init-project` / MCP `artifactgraph_init` | `config/load-config.ts` → `writeBrownfieldConfig` |
-| `rebuild` | `registry/load-registries.ts` + `db/index-store.ts` |
-| `analyze` / `gaps` | `analyze/analyze-spec.ts`, `analyze-bullets.ts` |
-| `grill_check` / `remember` | `analyze/grill-check.ts` (+ parity when `kind=parity`) |
-| `parity_check` / CLI `parity` | `analyze/parity-check.ts` · [PARITY.md](./PARITY.md) |
-| `gen` | `gen/run-command.ts` → allowlist spawn |
-| Package bootstrap | `install.sh` / `install.ps1` · member guide [INIT.md](./INIT.md) |
-
-Boot: `bin/artifactgraph-mcp.mjs` → `mcp/server.ts` → `mcp/tools.ts`.
+| `projects` | `config/platform-repos.ts` |
+| CLI `init` / `init-project` | `install/agents.ts`, `config/load-config.ts` |
+| `rebuild` | `registry/load-registries.ts` → index shells · common · unit · e2e · aliases |
+| `analyze` / `gaps` / `grill_check` / `parity_check` / `remember` | `analyze/*` |
+| `gen` | `gen/run-command.ts` → allowlist only |
+| `status` | config + `dsl` lanes + resolved hubs/specRoots + index summary |
+| `suggest_tags` | `lexicon/load-lexicon.ts` — R2.1 (fe/docs/be) / R3.1 (plans) local suggest |
+| path resolve | `config/resolve-paths.ts` — `@projectId/…`, gapSources, argv |
 
 ---
 
@@ -77,14 +88,18 @@ Boot: `bin/artifactgraph-mcp.mjs` → `mcp/server.ts` → `mcp/tools.ts`.
 one line
 
 ## already_done_local
-- tags / files / genDry OK
+- tags / files / genDry OK / index hit
 
 ## missing_only
 - needs-component: slot → props
-- legacy: Symbol (path hint) — no prior decision
+- legacy: Symbol — no prior decision
+
+## parityFindings (legacy — REQUIRED same turn)
+- see legacy/parity.md
 
 ## constraints
-- do not regenerate shell/page
+- do not dump registries/templates
+- do not write product registry from cloud — member promote after review
 - max N files
 ```
 
@@ -97,7 +112,7 @@ one line
 | T1 | Apply draft tags → write `ir/spec.yaml` |
 | T2 | Slice builders per gap kind |
 | T3 | Parse HANDOFF → missing slots only |
-| T4 | `registry_apply` after promote |
+| T4 | Guided promote checklist after remember (still product files) |
 | T5 | Richer grill detect (mark-detect parity) |
 | T6 | Auto-write `review.parity[]` into bundle after remember |
 
@@ -105,4 +120,36 @@ one line
 
 ## platform-repos
 
-Portal map includes project **`artifactgraph`** (`../artifactgraph`) in group `platform-bases` — open that repo to continue MCP code.
+Portal map includes project **`artifactgraph`** (`../artifactgraph`) in group `platform-bases`.
+
+### Harness profiles
+
+`platform-repos.json` → `harness.defaultByRole` maps `role` → profile name; `projects.harnessProfile` overrides. Dùng để **phân lane** và tài liệu — `.cursor/` mỗi repo chỉnh tại đúng lane (không bulk-sync script trong package này).
+
+| Profile | Role(s) | Skills (lane) | MCP suggest lane |
+|---------|---------|---------------|------------------|
+| `full` | frontend, fullstack | prototype, test, unit, … | `fe` |
+| `shared` | backend, client | api, wire, unit + DNA | `be` |
+| `docs` | docs | spec, grill, dynamics | `docs` (= R2.1) |
+| `tests` | tests | testcase, grill-testcase | `plans` |
+| `tooling` | tooling (MCP) | platform-ai, platform-mark, artifactgraph | all (via product projectId) |
+
+### Lexicon → lane
+
+| Hub file | MCP tool lane | Used for |
+|----------|---------------|----------|
+| `base-docs/.../registry-tags.en.txt` | `fe`, `docs`, `be` | UI shells, `#needs-component`, `#needs-endpoint`, `#needs-dto` |
+| `base-tests/.../testcase-taxonomy.en.txt` | `plans` | E2E case types, dimensions, scenarios |
+
+`analyzeBullets` picks `fe` vs `be` from `artifactgraph.json` stack + `dsl.lanes`. FE-only spec checks (`#shell:`, `ui.columns`) skipped on BE stacks.
+
+Lane workspace groups: `code-fe`, `code-be`, `code-fullstack`, `docs`, `tests`, `mcp` — generate via `node scripts/platform-workspace-from-repos.mjs --group=<lane>` (gitignored `platform-*.code-workspace`).
+
+
+## Multi-hub paths + lexicons (2026-07-15)
+
+- `hubs.docs` / `hubs.tests` → platform-repos project ids (default `base-docs` / `base-tests`)
+- `specRoots` / `gapSources` / command `--dir` may use `@base-docs/...` (workspace map, not only `../`)
+- `vocabularies.registryTags` → docs hub `platform/toolchain/lexicon/registry-tags.en.txt`
+- `vocabularies.testTaxonomy` → tests hub `catalog/lexicon/testcase-taxonomy.en.txt`
+- Gen still reads IR + product `registries/*.json` only — lexicons are suggest/index, not gen SSOT

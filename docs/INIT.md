@@ -10,7 +10,7 @@ Repo: [raintr91/artifactgraph](https://github.com/raintr91/artifactgraph)
 | 2. Wire **agents** | **`artifactgraph init`** | Máy (global) hoặc cwd (local) | Ghi MCP vào Cursor / Claude / Kilo |
 | 3. Wire **product repo** | **`artifactgraph init-project`** | Từng base (portal, …) | Ghi `artifactgraph.json` + sau đó `rebuild` |
 
-`init` **không** gắn một feature/repo product — mặc định là **tổng thế** (`--location=global`).
+`init` **không** gắn một feature/repo product. **Khuyến nghị `--location=local`** trong product repo (portal, …) — MCP chỉ load khi mở workspace đó (tiết kiệm token). Global chỉ khi thật sự muốn mọi chat có tools.
 
 Alias cũ: `artifactgraph install` → gọi `init` (có note deprecated).
 
@@ -34,8 +34,8 @@ Which agents should get artifactgraph MCP?
    ◉ Kilo Code  (detected)
 
 Install location?
- ❯ ● global — ~/.cursor · ~/.claude.json · ~/.kilocode (all projects)
-   ○ local — .cursor / .claude.json / .kilocode in this repo only
+ ❯ ● local — .cursor / .claude.json / .kilocode in this repo only (recommended — MCP only in this workspace)
+   ○ global — ~/.cursor · … (all projects; loads tool schemas into every chat)
 ```
 
 | Phím | Việc |
@@ -60,7 +60,7 @@ artifactgraph init --print-config kilo                # in snippet, không ghi f
 | Flag | Giá trị | Mặc định |
 |------|---------|----------|
 | `--target` | `auto` · `all` · `none` · csv `cursor,claude,kilo` | prompt / với `--yes` = `auto` |
-| `--location` | `global` · `local` | `global` |
+| `--location` | `global` · `local` | interactive: **local**; `--yes` không kèm flag: `global` (CI back-compat) |
 | `--yes` | bỏ prompt | — |
 | `--wsl` | Cursor Win → chạy MCP qua `wsl.exe` | — |
 | `--print-config <id>` | in JSON snippet | — |
@@ -137,14 +137,17 @@ MCP tool tương đương: `artifactgraph_init` (brownfield product).
 # 1) Package (WSL)
 curl -fsSL https://raw.githubusercontent.com/raintr91/artifactgraph/main/install.sh | bash
 
-# 2) Agents (interactive)
-artifactgraph init
-# hoặc: artifactgraph init --target=cursor,claude,kilo --yes
+# 2) Agents — prefer project MCP (token)
+cd ~/workspace/portal
+artifactgraph init --location=local --target=cursor --yes
+# Interactive: artifactgraph init  (default location = local)
 
-# 3) Mỗi product base
-cd ~/workspace/portal && artifactgraph init-project && artifactgraph rebuild
-cd ~/workspace/nextjs  && artifactgraph init-project && artifactgraph rebuild
+# 3) Product index
+artifactgraph init-project && artifactgraph rebuild
+# nextjs / bases khác: lặp init --location=local trong từng repo nếu cần MCP
 ```
+
+**Gỡ global:** xóa `artifactgraph` (và `qa-git` nếu không dùng) khỏi `%USERPROFILE%\.cursor\mcp.json` — chỉ giữ CodeGraph nếu cần.
 
 PowerShell (ưu tiên WSL):
 
@@ -163,6 +166,7 @@ Chi tiết package bootstrap: [INSTALL.md](./INSTALL.md).
 | Agent không thấy tools | Restart agent; kiểm tra **Windows** `%USERPROFILE%\.cursor\mcp.json` (không phải WSL `~/.cursor`) |
 | MCP error `-32000 Connection closed` | Launcher phải `await main()` — rebuild/reinstall; Cursor Win + code WSL → entry dùng `wsl.exe` |
 | `Missing artifactgraph.json` | `cd <repo> && artifactgraph init-project` |
-| Win Cursor + code ở WSL | `artifactgraph init --target=cursor --yes` (tự detect `/mnt/c/Users/…/.cursor/mcp.json` + `wsl.exe`) |
+| Win Cursor + code ở WSL | Project: `init --location=local` (entry `wsl.exe` + `artifactgraph-mcp`). Global Win chỉ khi cố ý |
+| MCP ăn token mọi chat | Gỡ artifactgraph khỏi global mcp.json; dùng `.cursor/mcp.json` trong product repo |
 | Sai workspace bases | `export ARTIFACTGRAPH_WORKSPACE=$HOME/workspace` |
 | Muốn xem config không ghi | `artifactgraph init --print-config cursor` |

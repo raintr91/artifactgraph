@@ -2,12 +2,70 @@
   "stack": "dotnet-integration",
   "mode": "brownfield",
   "commands": {
-    "genDry": ["./codegen/runners/generate", "dry", "--spec", "{spec}"],
-    "gen": ["./codegen/runners/generate", "write", "--spec", "{spec}"],
-    "registryValidate": ["./codegen/runners/generate", "registry"]
+    "genDry": [
+      "./codegen/runners/generate",
+      "dry",
+      "--id",
+      "{spec}"
+    ],
+    "gen": [
+      "./codegen/runners/generate",
+      "write",
+      "--id",
+      "{spec}"
+    ],
+    "registryValidate": [
+      "./codegen/runners/generate",
+      "registry"
+    ]
   },
-  "registries": ["registries/codegen.registry.json", "registries/common.registry.json"],
-  "gapSources": ["**/generated/HANDOFF.md"],
-  "specRoots": ["docs/features"],
-  "templates": { "root": "codegen/templates", "engine": "scriban" }
+  "registries": [
+    "registries/codegen.registry.json",
+    "registries/common.registry.json"
+  ],
+  "gapSources": [
+    "@base-docs/product/**/generated/HANDOFF.md",
+    "@base-docs/product/**/generated/UNIT-HANDOFF.md",
+    "@base-docs/product/**/generated/codegen.manifest.json",
+    "**/generated/HANDOFF.md",
+    "**/generated/UNIT-HANDOFF.md",
+    "**/generated/codegen.manifest.json"
+  ],
+  "specRoots": [
+    "@base-docs/product",
+    "@base-tests/cases",
+    "@base-tests/suites"
+  ],
+  "templates": {
+    "root": "codegen/templates",
+    "engine": "scriban"
+  },
+  "hubs": {
+    "docs": "base-docs",
+    "tests": "base-tests"
+  },
+  "dsl": {
+    "ssot": "product-repo",
+    "lanes": {
+      "be": {
+        "registries": [
+          "registries/codegen.registry.json",
+          "registries/common.registry.json"
+        ],
+        "genKeys": [
+          "genDry",
+          "gen"
+        ],
+        "needsTags": [
+          "#needs-endpoint",
+          "#needs-dto"
+        ],
+        "note": "Integration BE — MCP indexes codegen registry only"
+      }
+    }
+  },
+  "vocabularies": {
+    "registryTags": "@base-docs/platform/toolchain/lexicon/registry-tags.en.txt",
+    "testTaxonomy": "@base-tests/catalog/lexicon/testcase-taxonomy.en.txt"
+  }
 }

@@ -2,18 +2,96 @@
   "stack": "nextjs-nest",
   "mode": "brownfield",
   "commands": {
-    "genDry": ["pnpm", "portal:gen:dry", "--spec", "{spec}"],
-    "nestGenDry": ["pnpm", "nest:gen:dry", "--spec", "{spec}"],
-    "contractGenDry": ["pnpm", "contract:gen:dry", "--spec", "{spec}"],
-    "registryValidate": ["pnpm", "portal:registry"],
-    "nestRegistry": ["pnpm", "nest:registry"]
+    "genDry": [
+      "pnpm",
+      "portal:gen:dry",
+      "--id",
+      "{spec}"
+    ],
+    "nestGenDry": [
+      "pnpm",
+      "nest:gen:dry",
+      "--spec",
+      "{spec}"
+    ],
+    "contractGenDry": [
+      "pnpm",
+      "contract:gen:dry",
+      "--spec",
+      "{spec}"
+    ],
+    "registryValidate": [
+      "pnpm",
+      "portal:registry"
+    ],
+    "nestRegistry": [
+      "pnpm",
+      "nest:registry"
+    ]
   },
   "registries": [
     "registries/design.registry.json",
     "registries/nest-codegen.registry.json",
     "registries/contract-field.registry.json"
   ],
-  "gapSources": ["**/generated/HANDOFF.md"],
-  "specRoots": ["docs/features/yaml"],
-  "templates": { "root": "codegen/templates", "engine": "hbs" }
+  "gapSources": [
+    "@base-docs/product/**/generated/HANDOFF.md",
+    "@base-docs/product/**/generated/UNIT-HANDOFF.md",
+    "@base-docs/product/**/generated/codegen.manifest.json",
+    "**/generated/HANDOFF.md",
+    "**/generated/UNIT-HANDOFF.md",
+    "**/generated/codegen.manifest.json"
+  ],
+  "specRoots": [
+    "@base-docs/product",
+    "@base-tests/cases",
+    "@base-tests/suites"
+  ],
+  "templates": {
+    "root": "codegen/templates",
+    "engine": "hbs"
+  },
+  "hubs": {
+    "docs": "base-docs",
+    "tests": "base-tests"
+  },
+  "dsl": {
+    "ssot": "product-repo",
+    "lanes": {
+      "fe": {
+        "registries": [
+          "registries/design.registry.json"
+        ],
+        "genKeys": [
+          "genDry"
+        ],
+        "needsTags": [
+          "#needs-component",
+          "#needs-ui",
+          "#shell:",
+          "#widget:"
+        ],
+        "note": "Next FE half — promote design registry in product repo"
+      },
+      "be": {
+        "registries": [
+          "registries/nest-codegen.registry.json",
+          "registries/contract-field.registry.json"
+        ],
+        "genKeys": [
+          "nestGenDry",
+          "contractGenDry"
+        ],
+        "needsTags": [
+          "#needs-endpoint",
+          "#needs-dto"
+        ],
+        "note": "Nest BE half — suggest_tags lane=be"
+      }
+    }
+  },
+  "vocabularies": {
+    "registryTags": "@base-docs/platform/toolchain/lexicon/registry-tags.en.txt",
+    "testTaxonomy": "@base-tests/catalog/lexicon/testcase-taxonomy.en.txt"
+  }
 }

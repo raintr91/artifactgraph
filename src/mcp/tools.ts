@@ -10,13 +10,19 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { resolveProject } from '../config/platform-repos.js'
 import { loadRepoConfig, requireRepoConfig, writeBrownfieldConfig } from '../config/load-config.js'
 import { IndexStore } from '../db/index-store.js'
-import { loadRegistries, indexRegistries } from '../registry/load-registries.js'
+import { loadRegistries, indexRegistries, registryIndexSummary } from '../registry/load-registries.js'
 import { analyzeSpecFile } from '../analyze/analyze-spec.js'
 import { analyzeBullets } from '../analyze/analyze-bullets.js'
 import { grillCheck, recordGrillDecision } from '../analyze/grill-check.js'
 import { parityCheck, recordParityDecision } from '../analyze/parity-check.js'
 import { runAllowlistedCommand } from '../gen/run-command.js'
-import { loadPlatformReposMap } from '../config/platform-repos.js'
+import { loadPlatformReposMap, resolveHarnessProfile } from '../config/platform-repos.js'
+import {
+  pathResolutionSummary,
+  resolveGapSourceFiles,
+  resolveSpecPath,
+} from '../config/resolve-paths.js'
+import { indexLexicons, suggestTags } from '../lexicon/load-lexicon.js'
 
 function text(data: unknown) {
   return {
@@ -29,15 +35,17 @@ export function registerTools(server: McpServer): void {
   /** List platform-bases projects from this package's platform-repos.json. */
   server.tool(
     'artifactgraph_projects',
-    'List platform-bases projects (id, stack, root, role) from artifactgraph/platform-repos.json',
+    'List platform-bases projects (id, stack, root, role, harnessProfile) from artifactgraph/platform-repos.json',
     {},
     async () => {
       const map = loadPlatformReposMap()
       return text({
         defaultGroup: map.defaultGroup,
+        harness: map.harness,
         projects: Object.entries(map.projects).map(([id, p]) => ({
           id,
           ...p,
+          harnessProfile: resolveHarnessProfile(id, map),
         })),
       })
     },
@@ -62,10 +70,10 @@ export function registerTools(server: McpServer): void {
     },
   )
 
-  /** Rebuild SQLite index from registries on disk. */
+  /** Rebuild SQLite index from registries on disk (SSOT = product git; MCP = index only). */
   server.tool(
     'artifactgraph_rebuild',
-    'Rebuild .artifactgraph/index.db from product registries (git remains SSOT)',
+    'Rebuild .artifactgraph/index.db from product registries/*.json (git remains SSOT; MCP never owns registry files)',
     { projectId: z.string() },
     async ({ projectId }) => {
       const project = resolveProject(projectId)
@@ -73,12 +81,19 @@ export function registerTools(server: McpServer): void {
       const store = new IndexStore(project.root)
       const loaded = loadRegistries(project.root, cfg)
       indexRegistries(store, loaded)
+      const lexicon = indexLexicons(store, project.root, cfg)
+      const summary = { ...registryIndexSummary(loaded), ...lexicon }
+      store.setMeta('indexSummary', JSON.stringify(summary))
+      store.setMeta('rebuiltAt', new Date().toISOString())
       store.close()
       return text({
         ok: true,
+        ssot: 'product-repo',
         registries: Object.keys(loaded.byFile),
-        designShells: loaded.designShells.length,
-        commonIds: loaded.commonIds.length,
+        index: summary,
+        paths: pathResolutionSummary(project.root, cfg),
+        dsl: cfg.dsl ?? null,
+        commandKeys: Object.keys(cfg.commands),
       })
     },
   )
@@ -100,8 +115,10 @@ export function registerTools(server: McpServer): void {
       const cfg = requireRepoConfig(project.root)
       const store = new IndexStore(project.root)
       let result
-      if (specPath) result = analyzeSpecFile(project.root, cfg, specPath, store)
-      else if (bullets) result = analyzeBullets(project.root, cfg, bullets, store)
+      if (specPath) {
+        const resolved = resolveSpecPath(project.root, cfg, specPath)
+        result = analyzeSpecFile(project.root, cfg, resolved, store)
+      } else if (bullets) result = analyzeBullets(project.root, cfg, bullets, store)
       else {
         store.close()
         throw new Error('Provide specPath and/or bullets')
@@ -124,10 +141,11 @@ export function registerTools(server: McpServer): void {
       const project = resolveProject(projectId)
       const cfg = requireRepoConfig(project.root)
       const store = new IndexStore(project.root)
+      const resolvedSpec = specPath ? resolveSpecPath(project.root, cfg, specPath) : undefined
       const result = grillCheck({
         repoRoot: project.root,
         cfg,
-        specPath,
+        specPath: resolvedSpec,
         bullets,
         store,
       })
@@ -199,11 +217,11 @@ export function registerTools(server: McpServer): void {
   /** Run allowlisted gen/registry command only. */
   server.tool(
     'artifactgraph_gen',
-    'Run an allowlisted command from artifactgraph.json (genDry, gen, registryValidate, …)',
+    'Run allowlisted DSL gen from artifactgraph.json (docsRender, specSplit, gen, unitGen, testcaseGen, …). Registry promote stays in product repo.',
     {
       projectId: z.string(),
       commandKey: z.string().describe('Key in artifactgraph.json commands'),
-      spec: z.string().optional().describe('Substituted for {spec}'),
+      spec: z.string().optional().describe('Substituted for {spec} (bundle path, ir/spec, or testcase path)'),
     },
     async ({ projectId, commandKey, spec }) => {
       const project = resolveProject(projectId)
@@ -229,7 +247,7 @@ export function registerTools(server: McpServer): void {
       const cfg = requireRepoConfig(project.root)
       const store = new IndexStore(project.root)
       const full = specPath
-        ? analyzeSpecFile(project.root, cfg, specPath, store)
+        ? analyzeSpecFile(project.root, cfg, resolveSpecPath(project.root, cfg, specPath), store)
         : analyzeBullets(project.root, cfg, bullets ?? '', store)
       store.close()
       return text({
@@ -241,18 +259,71 @@ export function registerTools(server: McpServer): void {
     },
   )
 
-  /** Show config + whether product is wired. */
+  /**
+   * Local lexicon suggest — R2.1 (fe/docs/be) draftTags or R3.1 (plans) taxonomy enums.
+   * Never dumps full vocabulary into cloudPromptSlice.
+   */
+  server.tool(
+    'artifactgraph_suggest_tags',
+    'Suggest draftTags / taxonomy enums from hub lexicons (lane=fe|docs|be|plans). Local-first.',
+    {
+      projectId: z.string(),
+      lane: z.enum(['fe', 'docs', 'plans', 'be']).describe('fe/docs → registry-tags (UI); be → API tags; plans → testcase-taxonomy'),
+      bullets: z.string().optional().describe('Free-text for keyword match'),
+      limit: z.number().optional().describe('Max draft tags / matches (default 12)'),
+    },
+    async ({ projectId, lane, bullets, limit }) => {
+      const project = resolveProject(projectId)
+      const cfg = requireRepoConfig(project.root)
+      const result = suggestTags({
+        repoRoot: project.root,
+        cfg,
+        lane,
+        bullets: bullets ?? '',
+        limit,
+      })
+      return text(result)
+    },
+  )
+
+  /** Show config + DSL lanes + whether product is wired. */
   server.tool(
     'artifactgraph_status',
-    'Show project root, stack, whether artifactgraph.json exists, command keys',
+    'Show project root, stack, dsl lanes, command keys; registries SSOT = product repo paths',
     { projectId: z.string() },
     async ({ projectId }) => {
       const project = resolveProject(projectId)
       const cfg = loadRepoConfig(project.root)
+      let index: Record<string, number> | null = null
+      let rebuiltAt: string | null = null
+      if (cfg) {
+        try {
+          const store = new IndexStore(project.root)
+          rebuiltAt = store.getMeta('rebuiltAt') ?? null
+          const raw = store.getMeta('indexSummary')
+          index = raw ? (JSON.parse(raw) as Record<string, number>) : null
+          store.close()
+        } catch {
+          /* index optional */
+        }
+      }
+      const paths = cfg ? pathResolutionSummary(project.root, cfg) : null
+      const gapFiles = cfg ? resolveGapSourceFiles(project.root, cfg).slice(0, 30) : []
       return text({
         project,
         wired: Boolean(cfg),
-        config: cfg,
+        ssot: {
+          registries: cfg?.registries ?? [],
+          templates: cfg?.templates ?? null,
+          note: 'Registries + hbs live in product repo; lexicons on hubs; MCP only indexes + runs allowlisted gen',
+        },
+        paths,
+        gapSourceSample: gapFiles,
+        vocabularies: cfg?.vocabularies ?? null,
+        dsl: cfg?.dsl ?? null,
+        commandKeys: cfg ? Object.keys(cfg.commands) : [],
+        index,
+        rebuiltAt,
       })
     },
   )

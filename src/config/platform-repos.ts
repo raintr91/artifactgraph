@@ -13,7 +13,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
-import type { PlatformReposMap, PlatformProject } from '../types.js'
+import type { PlatformProject, PlatformReposMap } from '../types.js'
 
 /** Absolute path to the artifactgraph package root. */
 export function packageRoot(): string {
@@ -55,6 +55,7 @@ export function loadPlatformReposMap(mapPath?: string): PlatformReposMap {
   const raw = JSON.parse(readFileSync(file, 'utf8')) as {
     workspaceRoot?: string
     defaultGroup?: string
+    harness?: PlatformReposMap['harness']
     projects: Record<string, PlatformProject>
   }
   const workspaceRoot = resolveWorkspaceRoot(raw.workspaceRoot ?? '..')
@@ -68,8 +69,21 @@ export function loadPlatformReposMap(mapPath?: string): PlatformReposMap {
   return {
     workspaceRoot,
     defaultGroup: raw.defaultGroup ?? 'platform-bases',
+    harness: raw.harness,
     projects,
   }
+}
+
+/** Resolve harness sync profile for a project id (full | shared | docs | tests | tooling). */
+export function resolveHarnessProfile(
+  projectId: string,
+  map?: PlatformReposMap,
+): string {
+  const m = map ?? loadPlatformReposMap()
+  const p = m.projects[projectId]
+  if (!p) return 'shared'
+  if (p.harnessProfile) return p.harnessProfile
+  return m.harness?.defaultByRole?.[p.role] ?? 'shared'
 }
 
 /** Look up one project; throws with a helpful list if id is wrong. */

@@ -2,17 +2,84 @@
   "stack": "fastapi",
   "mode": "brownfield",
   "commands": {
-    "genDry": ["./codegen/runners/generate", "dry", "--spec", "{spec}"],
-    "gen": ["./codegen/runners/generate", "write", "--spec", "{spec}"],
-    "registryValidate": ["./codegen/runners/generate", "registry"],
-    "commonRegistry": ["./registries/validate-common", "validate"]
+    "genDry": [
+      "./codegen/runners/generate",
+      "dry",
+      "--id",
+      "{spec}"
+    ],
+    "gen": [
+      "./codegen/runners/generate",
+      "write",
+      "--id",
+      "{spec}"
+    ],
+    "registryValidate": [
+      "./codegen/runners/generate",
+      "registry"
+    ],
+    "commonRegistry": [
+      "./registries/validate-common",
+      "validate"
+    ]
   },
   "registries": [
     "registries/codegen.registry.json",
     "registries/unit-test.registry.json",
     "registries/common.registry.json"
   ],
-  "gapSources": ["**/generated/HANDOFF.md"],
-  "specRoots": ["docs/features/yaml"],
-  "templates": { "root": "codegen/templates", "engine": "jinja2" }
+  "gapSources": [
+    "@base-docs/product/**/generated/HANDOFF.md",
+    "@base-docs/product/**/generated/UNIT-HANDOFF.md",
+    "@base-docs/product/**/generated/codegen.manifest.json",
+    "**/generated/HANDOFF.md",
+    "**/generated/UNIT-HANDOFF.md",
+    "**/generated/codegen.manifest.json"
+  ],
+  "specRoots": [
+    "@base-docs/product",
+    "@base-tests/cases",
+    "@base-tests/suites"
+  ],
+  "templates": {
+    "root": "codegen/templates",
+    "engine": "jinja2"
+  },
+  "hubs": {
+    "docs": "base-docs",
+    "tests": "base-tests"
+  },
+  "dsl": {
+    "ssot": "product-repo",
+    "lanes": {
+      "be": {
+        "registries": [
+          "registries/codegen.registry.json",
+          "registries/common.registry.json"
+        ],
+        "genKeys": [
+          "genDry",
+          "gen"
+        ],
+        "needsTags": [
+          "#needs-endpoint",
+          "#needs-dto"
+        ],
+        "note": "BE registry + templates stay in product repo; MCP indexes only"
+      },
+      "unit": {
+        "registries": [
+          "registries/unit-test.registry.json"
+        ],
+        "genKeys": [],
+        "needsTags": [
+          "#needs-unit-test"
+        ]
+      }
+    }
+  },
+  "vocabularies": {
+    "registryTags": "@base-docs/platform/toolchain/lexicon/registry-tags.en.txt",
+    "testTaxonomy": "@base-tests/catalog/lexicon/testcase-taxonomy.en.txt"
+  }
 }

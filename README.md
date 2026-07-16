@@ -32,6 +32,23 @@ Requires **Node ≥ 22** (`node:sqlite`).
 
 ---
 
+## Versions (chọn bản)
+
+| Version | Dùng khi | Cách lấy |
+|---------|----------|----------|
+| **v1.0.0** | Base / project nhỏ đang ổn với package cũ trên `main` tại thời điểm tag | `git checkout v1.0.0` · hoặc pin install vào tag này |
+| **v2.0.0** (`release/2.0.0`) | Harness map + lexicon lanes FE/BE/docs/plans + tooling `.cursor` SSOT | Branch/PR này · sau merge: `main` |
+
+```bash
+# Giữ v1 (không nâng)
+git clone … artifactgraph && cd artifactgraph && git checkout v1.0.0 && npm run build
+
+# Thử v2
+git checkout release/2.0.0 && npm run build && artifactgraph version   # → 2.0.0
+```
+
+---
+
 ## Commands
 
 | Step | CLI |

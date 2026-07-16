@@ -1,10 +1,11 @@
 /**
  * Shared types for artifactgraph.
  *
- * Mental model:
- * - Product repo git files = SSOT (spec, registries, templates)
- * - SQLite (.artifactgraph/index.db) = local index for fast analyze / memory of confirms
- * - Cloud LLM = only for low-confidence gaps (this package tries to stay local-first)
+ * Mental model (DSL loop):
+ * - Product repo git = SSOT — registries/*.json, codegen/templates, specs, skills/docs
+ * - MCP = index + protocol only — .artifactgraph/index.db, allowlisted gen, grill/parity remember
+ * - MCP does NOT own or rewrite registry SSOT; promote stays in product docs/skills
+ * - Cloud LLM = only low-confidence gaps (cloudPromptSlice)
  */
 
 /** One missing / suggested artifact the agent or member should resolve. */
@@ -14,6 +15,8 @@ export type GapKind =
   | 'needs-common'
   | 'needs-unit-test'
   | 'needs-e2e'
+  /** Alias-oriented: missing testcase YAML / e2e bundle (prefer needs-e2e when registry miss). */
+  | 'needs-testcase'
   | 'missing-hashtag'
   | 'missing-codegen-profile'
   | 'registry-miss'
@@ -109,6 +112,46 @@ export interface AnalyzeResult {
   cloudPromptSlice: string
 }
 
+/** One DSL lane: which registry/templates/gen keys/tags belong together (documentation for agents). */
+export interface DslLane {
+  /** Path(s) under product repo — SSOT stays there. */
+  registries?: string[]
+  templates?: string
+  /** Keys in artifactgraph.json commands for local gen. */
+  genKeys: string[]
+  /** Standard needs-* / phase tags agents should prefer. */
+  needsTags?: string[]
+  /** Short note for status / cloudPromptSlice. */
+  note?: string
+}
+
+/**
+ * Optional map of lanes (fe / be / unit / e2e / docs).
+ * Does not store registry payloads — only pointers + gen keys for MCP index/protocol.
+ */
+export interface DslManifest {
+  /** Always product-repo: registries + hbs live outside this MCP package. */
+  ssot: 'product-repo'
+  lanes: Record<string, DslLane>
+}
+
+/** Optional hub project ids from platform-repos (defaults: base-docs / base-tests). */
+export interface ArtifactgraphHubs {
+  docs?: string
+  tests?: string
+}
+
+/**
+ * Lexicon paths (txt) for MCP suggest — NOT registry SSOT.
+ * Prefer `@base-docs/...` / `@base-tests/...` absolute-via-map paths.
+ */
+export interface ArtifactgraphVocabularies {
+  /** R2.1 — UI/API/mark DSL tag lexicon */
+  registryTags?: string
+  /** R3.1 — E2E taxonomy lexicon */
+  testTaxonomy?: string
+}
+
 /** artifactgraph.json living in a product repo (brownfield wire). */
 export interface ArtifactgraphConfig {
   version?: number
@@ -119,7 +162,17 @@ export interface ArtifactgraphConfig {
   registries: string[]
   gapSources?: string[]
   specRoots?: string[]
+  /** Hub project ids for multi-root layout (docs / tests). */
+  hubs?: ArtifactgraphHubs
+  /** Lexicon file paths for suggest_tags / draftTags (local index). */
+  vocabularies?: ArtifactgraphVocabularies
   templates?: { root: string; engine: string }
+  /** Lane index metadata — optional; MCP rebuild still reads `registries[]`. */
+  dsl?: DslManifest
+}
+
+export interface PlatformHarness {
+  defaultByRole?: Record<string, string>
 }
 
 export interface PlatformProject {
@@ -128,10 +181,13 @@ export interface PlatformProject {
   stack: string
   repo: string
   description?: string
+  /** Override harness.defaultByRole — full | shared | docs | tests | tooling */
+  harnessProfile?: string
 }
 
 export interface PlatformReposMap {
   workspaceRoot: string
   defaultGroup: string
+  harness?: PlatformHarness
   projects: Record<string, PlatformProject>
 }

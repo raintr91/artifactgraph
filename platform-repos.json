@@ -3,9 +3,20 @@
   "description": "Workspace map for artifactgraph — roots relative to workspaceRoot (or ARTIFACTGRAPH_WORKSPACE).",
   "workspaceRoot": "..",
   "defaultGroup": "platform-bases",
+  "harness": {
+    "defaultByRole": {
+      "frontend": "full",
+      "client": "shared",
+      "backend": "shared",
+      "fullstack": "full",
+      "docs": "docs",
+      "tests": "tests",
+      "tooling": "tooling"
+    }
+  },
   "groups": {
     "platform-bases": {
-      "description": "Workspace base templates — FE / BE / fullstack / MCP tooling",
+      "description": "Full cluster — cross-repo edits only when needed",
       "primary": "portal",
       "projects": [
         "portal",
@@ -16,8 +27,41 @@
         "api",
         "integration",
         "line",
-        "artifactgraph"
+        "base-docs",
+        "base-tests",
+        "artifactgraph",
+        "hubdocs"
       ]
+    },
+    "code-fe": {
+      "description": "Frontend bases — prototype / wire / test / unit",
+      "primary": "portal",
+      "projects": ["portal", "nextjs", "line"]
+    },
+    "code-be": {
+      "description": "Backend bases — api / wire / unit",
+      "primary": "api",
+      "projects": ["api", "fast-api-base", "integration"]
+    },
+    "code-fullstack": {
+      "description": "Monorepo FE + BE",
+      "primary": "nuxt-nest",
+      "projects": ["nuxt-nest", "next-nest"]
+    },
+    "docs": {
+      "description": "Docs hub — spec / legacy / grill / dynamics only",
+      "primary": "base-docs",
+      "projects": ["base-docs"]
+    },
+    "tests": {
+      "description": "E2E plans hub — testcase / grill-testcase only",
+      "primary": "base-tests",
+      "projects": ["base-tests"]
+    },
+    "mcp": {
+      "description": "MCP tooling — harness DNA + artifactgraph only",
+      "primary": "artifactgraph",
+      "projects": ["artifactgraph", "hubdocs"]
     }
   },
   "projects": {
@@ -77,12 +121,51 @@
       "repo": "line",
       "description": "Base WinForms — override in platform-repos.local.json for D:/workspace/line"
     },
+    "base-docs": {
+      "root": "base-docs",
+      "role": "docs",
+      "stack": "docs-c4",
+      "repo": "base-docs",
+      "description": "Base docs hub (R2) — C4 + product Code/common",
+      "specRoots": {
+        "architecture": "architecture",
+        "components": "product/components",
+        "common": "product/common/code",
+        "shared": "product/shared"
+      },
+      "docsSite": {
+        "dev": "pnpm docs:dev",
+        "root": "."
+      }
+    },
+    "base-tests": {
+      "root": "base-tests",
+      "role": "tests",
+      "stack": "e2e-plans",
+      "repo": "base-tests",
+      "description": "Base tests hub (R3) — E2E yaml/md plans only",
+      "testRoots": {
+        "landscape": "landscape",
+        "scenarios": "scenarios",
+        "cases": "cases",
+        "suites": "suites"
+      }
+    },
     "artifactgraph": {
       "root": ".",
       "role": "tooling",
       "stack": "mcp",
       "repo": "artifactgraph",
+      "harnessProfile": "tooling",
       "description": "Local MCP artifactgraph — gaps/tags/gen allowlist (raintr91/artifactgraph)"
+    },
+    "hubdocs": {
+      "root": "hubdocs",
+      "role": "tooling",
+      "stack": "mcp-docs",
+      "repo": "hubdocs",
+      "harnessProfile": "tooling",
+      "description": "MCP hubdocs — docs index / hub tooling (optional sibling repo)"
     }
   }
 }
