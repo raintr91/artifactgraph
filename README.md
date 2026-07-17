@@ -10,7 +10,6 @@ gets a small `cloudPromptSlice`.
 - Design: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - Local-first: [docs/INTERNALS.md](./docs/INTERNALS.md)
 - Parity: [docs/PARITY.md](./docs/PARITY.md)
-- **Consolidation TODO** (hub decoupling + harness profiles): [CONSOLIDATION-TODO.md](./CONSOLIDATION-TODO.md)
 
 ---
 
@@ -35,12 +34,26 @@ Requires **Node ≥ 22** (`node:sqlite`).
 
 ---
 
+## Standalone runtime
+
+- MCP is pinned to the repository where `artifactgraph init` ran.
+- Product tools use that repo directly; they do not require `projectId`,
+  `platform-repos.json`, `base-docs`, or `base-tests`.
+- Config, lexicons, registries, generated harness files, and the SQLite index
+  are project-local.
+- The packaged project map is optional migration/tooling inventory only.
+
+The package installer does not initialize an arbitrary repository. Run
+`artifactgraph init` separately from each repo where ArtifactGraph is wanted.
+
+---
+
 ## Versions (chọn bản)
 
 | Version | Dùng khi | Cách lấy |
 |---------|----------|----------|
 | **v1.0.0** | Base / project nhỏ đang ổn với package cũ trên `main` tại thời điểm tag | `git checkout v1.0.0` · hoặc pin install vào tag này |
-| **v2.0.0** (`release/2.0.0`) | Harness map + lexicon lanes FE/BE/docs/plans + tooling `.cursor` SSOT | Branch/PR này · sau merge: `main` |
+| **v2.0.0** (`release/2.0.0`) | Standalone repo runtime + local lexicons + type-scoped MCP harness | Branch/PR này · sau merge: `main` |
 
 ```bash
 # Giữ v1 (không nâng)

@@ -251,3 +251,24 @@ test('MCP operates on a cwd-pinned repo without projectId', async () => {
     await client.close()
   }
 })
+
+test('package bootstrap does not initialize mapped or arbitrary repositories', () => {
+  const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
+  assert.equal(pkg.scripts['init:portal'], undefined)
+  assert.equal(pkg.scripts['init:all'], undefined)
+
+  const windowsInstaller = readFileSync(path.join(root, 'install.ps1'), 'utf8')
+  assert.doesNotMatch(windowsInstaller, /artifactgraph_projects/)
+  assert.doesNotMatch(windowsInstaller, /--mcp-file .*USERPROFILE/)
+  assert.match(windowsInstaller, /cd \/path\/to\/product/)
+})
+
+test('dotnet-line suggests and infers as FE, not BE', async () => {
+  const { inferSuggestLane } = await import('../dist/lexicon/infer-lane.js')
+  const stack = JSON.parse(
+    readFileSync(path.join(root, 'stacks/dotnet-line.json'), 'utf8'),
+  )
+  assert.ok(stack.dsl.lanes.fe)
+  assert.equal(stack.dsl.lanes.be, undefined)
+  assert.equal(inferSuggestLane({ ...stack, version: 2 }), 'fe')
+})

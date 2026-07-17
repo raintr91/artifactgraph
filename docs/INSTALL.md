@@ -28,7 +28,8 @@ curl -fsSL https://raw.githubusercontent.com/raintr91/artifactgraph/main/install
 ```
 
 Defaults: tree → `~/.artifactgraph`, link → `~/.local/bin/artifactgraph`.  
-Nếu có `~/workspace/portal` → ghi `workspace.path`.
+Nếu có workspace platform, installer có thể ghi `workspace.path` cho tooling
+inventory; runtime và `init` không dùng file này để chọn repo.
 
 ## Windows (PowerShell)
 
@@ -36,7 +37,8 @@ Nếu có `~/workspace/portal` → ghi `workspace.path`.
 irm https://raw.githubusercontent.com/raintr91/artifactgraph/main/install.ps1 | iex
 ```
 
-WSL có sẵn → chạy `install.sh` trong WSL rồi gợi ý `artifactgraph init`.
+WSL có sẵn → chạy `install.sh` trong WSL. Sau đó vào từng repo đích và chạy
+`artifactgraph init`; installer không tự khởi tạo một cwd hoặc repo bất kỳ.
 
 ## npx
 

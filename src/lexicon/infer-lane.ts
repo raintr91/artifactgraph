@@ -5,8 +5,8 @@
 import type { ArtifactgraphConfig } from '../types.js'
 import type { SuggestLane } from './load-lexicon.js'
 
-const FE_STACKS = new Set(['nuxt4', 'nextjs', 'nuxt4-nest', 'nextjs-nest'])
-const BE_STACKS = new Set(['laravel', 'fastapi', 'dotnet-integration', 'dotnet-line'])
+const FE_STACKS = new Set(['nuxt4', 'nextjs', 'nuxt4-nest', 'nextjs-nest', 'dotnet-line'])
+const BE_STACKS = new Set(['laravel', 'fastapi', 'dotnet-integration'])
 
 /** Product repo primarily FE (design/common registries). */
 export function isFeStack(cfg: ArtifactgraphConfig): boolean {

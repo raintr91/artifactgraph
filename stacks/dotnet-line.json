@@ -29,7 +29,7 @@
   "dsl": {
     "ssot": "product-repo",
     "lanes": {
-      "be": {
+      "fe": {
         "registries": [
           "registries/codegen.registry.json"
         ],
@@ -37,10 +37,10 @@
           "genDry"
         ],
         "needsTags": [
-          "#needs-endpoint",
-          "#needs-dto"
+          "#needs-shell",
+          "#needs-widget"
         ],
-        "note": "WinForms/client codegen — MCP indexes only"
+        "note": "WinForms/kiosk client codegen — MCP indexes only"
       }
     }
   },

@@ -36,9 +36,7 @@
     "harness:export": "node scripts/export-cursor-harness.mjs",
     "prepare": "npm run build",
     "mcp": "node bin/artifactgraph-mcp.mjs",
-    "cli": "node bin/artifactgraph.mjs",
-    "init:portal": "node bin/artifactgraph.mjs init-project --project portal && node bin/artifactgraph.mjs rebuild --project portal",
-    "init:all": "node bin/artifactgraph.mjs init-project --project portal && node bin/artifactgraph.mjs init-project --project nextjs && node bin/artifactgraph.mjs init-project --project nuxt-nest && node bin/artifactgraph.mjs init-project --project next-nest && node bin/artifactgraph.mjs init-project --project fast-api-base && node bin/artifactgraph.mjs init-project --project api && node bin/artifactgraph.mjs init-project --project integration && node bin/artifactgraph.mjs init-project --project line"
+    "cli": "node bin/artifactgraph.mjs"
   },
   "engines": {
     "node": ">=22"
