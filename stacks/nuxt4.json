@@ -2,40 +2,6 @@
   "stack": "nuxt4",
   "mode": "brownfield",
   "commands": {
-    "docsRender": [
-      "pnpm",
-      "--dir",
-      "@base-docs",
-      "docs:render"
-    ],
-    "docsRenderCommon": [
-      "pnpm",
-      "--dir",
-      "@base-docs",
-      "docs:render:common"
-    ],
-    "specSplit": [
-      "pnpm",
-      "--dir",
-      "@base-docs",
-      "spec:split",
-      "--",
-      "{spec}"
-    ],
-    "specSplitAll": [
-      "pnpm",
-      "--dir",
-      "@base-docs",
-      "spec:split:all"
-    ],
-    "specSplitCheck": [
-      "pnpm",
-      "--dir",
-      "@base-docs",
-      "spec:split:check",
-      "--",
-      "{spec}"
-    ],
     "genDry": [
       "pnpm",
       "portal:gen:dry",
@@ -102,18 +68,11 @@
     "registries/page-lifecycle.registry.json"
   ],
   "gapSources": [
-    "@base-docs/product/**/generated/HANDOFF.md",
-    "@base-docs/product/**/generated/UNIT-HANDOFF.md",
-    "@base-docs/product/**/generated/codegen.manifest.json",
     "**/generated/HANDOFF.md",
     "**/generated/UNIT-HANDOFF.md",
     "**/generated/codegen.manifest.json"
   ],
-  "specRoots": [
-    "@base-docs/product",
-    "@base-tests/cases",
-    "@base-tests/suites"
-  ],
+  "specRoots": [],
   "templates": {
     "root": "codegen/templates",
     "engine": "hbs"
@@ -121,16 +80,6 @@
   "dsl": {
     "ssot": "product-repo",
     "lanes": {
-      "docs": {
-        "genKeys": [
-          "specSplit",
-          "specSplitAll",
-          "docsRender",
-          "docsRenderCommon"
-        ],
-        "needsTags": [],
-        "note": "Reuse FE/unit/e2e tags; split IR + render BA md \u2014 no app codegen"
-      },
       "fe": {
         "registries": [
           "registries/design.registry.json",
@@ -187,12 +136,7 @@
       }
     }
   },
-  "hubs": {
-    "docs": "base-docs",
-    "tests": "base-tests"
-  },
   "vocabularies": {
-    "registryTags": "@base-docs/platform/toolchain/lexicon/registry-tags.en.txt",
-    "testTaxonomy": "@base-tests/catalog/lexicon/testcase-taxonomy.en.txt"
+    "registryTags": "artifactgraph/lexicon/registry-tags.en.txt"
   }
 }

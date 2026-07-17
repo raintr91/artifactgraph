@@ -21,6 +21,8 @@ Chỉ khi **sửa** package MCP, `platform-repos.json`, sync scripts, hoặc `.c
 
 **SSOT:** map = `platform-repos.json` · harness `.cursor/` = chỉnh **tại repo này**.
 
+**Skill sync check:** đọc `harness.profiles.<profile>.skills` + `syncPolicy.mode=propose` — so `.cursor/skills` vs allowlist theo project (không sync all lanes). Groups: `code-fe` / `code-be` / `code-fullstack` / `docs` / `tests` / `mcp`.
+
 ## Scripts
 
 ```bash
@@ -43,9 +45,9 @@ Feature / spec / plans → workspace lane đúng (`--group=docs`, `code-fe`, …
 
 | Lane | MCP `suggest_tags` | Hub lexicon |
 |------|-------------------|-------------|
-| FE / UI | `fe`, `docs` | R2.1 `registry-tags.en.txt` (@base-docs) |
+| FE / UI | `fe`, `docs` | product-local `artifactgraph/lexicon/registry-tags.en.txt` |
 | BE / API | `be` | R2.1 (`#api:`, `#needs-endpoint`, `#needs-dto`) |
-| Test / plans | `plans` | R3.1 `testcase-taxonomy.en.txt` (@base-tests) |
+| Test / plans | `plans` | product-local `artifactgraph/lexicon/testcase-taxonomy.en.txt` |
 
 Registries SSOT trên product repo · `analyzeBullets` auto lane từ stack · chi tiết `/platform-mark`.
 
@@ -64,5 +66,5 @@ Giữ lane **tooling**: không nhét skill code (`api`, `prototype`, …) hay do
 ## Done
 
 - [x] Chỉ 3 skill folders; rules = `platform-ai`, `artifactgraph`, `platform-code-size`, `team-flow-harness-state`
-- [x] `platform-repos.json` harness khớp lane groups
+- [x] `platform-repos.json` harness khớp lane groups + `profiles.*.skills` + `syncPolicy`
 - [x] Không copy `.cursor/` từ portal vào artifactgraph

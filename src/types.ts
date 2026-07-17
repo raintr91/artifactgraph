@@ -135,15 +135,15 @@ export interface DslManifest {
   lanes: Record<string, DslLane>
 }
 
-/** Optional hub project ids from platform-repos (defaults: base-docs / base-tests). */
+/** @deprecated Legacy external hub ids; standalone runtime does not resolve them. */
 export interface ArtifactgraphHubs {
   docs?: string
   tests?: string
 }
 
 /**
- * Lexicon paths (txt) for MCP suggest — NOT registry SSOT.
- * Prefer `@base-docs/...` / `@base-tests/...` absolute-via-map paths.
+ * Project-relative lexicon paths for MCP suggest — NOT registry SSOT.
+ * Init writes these under artifactgraph/lexicon/.
  */
 export interface ArtifactgraphVocabularies {
   /** R2.1 — UI/API/mark DSL tag lexicon */
@@ -162,7 +162,7 @@ export interface ArtifactgraphConfig {
   registries: string[]
   gapSources?: string[]
   specRoots?: string[]
-  /** Hub project ids for multi-root layout (docs / tests). */
+  /** @deprecated Standalone runtime ignores external hubs. */
   hubs?: ArtifactgraphHubs
   /** Lexicon file paths for suggest_tags / draftTags (local index). */
   vocabularies?: ArtifactgraphVocabularies
@@ -171,8 +171,23 @@ export interface ArtifactgraphConfig {
   dsl?: DslManifest
 }
 
+/** Skill allowlist for one harness sync profile (full | shared | docs | tests | tooling). */
+export interface PlatformHarnessProfile {
+  groups?: string[]
+  skills?: string[]
+  note?: string
+}
+
+export interface PlatformHarnessSyncPolicy {
+  /** propose = report drift only; never wipe other lanes blindly */
+  mode?: 'propose' | 'apply'
+  description?: string
+}
+
 export interface PlatformHarness {
   defaultByRole?: Record<string, string>
+  profiles?: Record<string, PlatformHarnessProfile>
+  syncPolicy?: PlatformHarnessSyncPolicy
 }
 
 export interface PlatformProject {

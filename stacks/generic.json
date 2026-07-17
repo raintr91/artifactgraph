@@ -1,0 +1,11 @@
+{
+  "stack": "generic",
+  "mode": "brownfield",
+  "commands": {},
+  "registries": [],
+  "gapSources": [],
+  "specRoots": [],
+  "vocabularies": {
+    "registryTags": "artifactgraph/lexicon/registry-tags.en.txt"
+  }
+}

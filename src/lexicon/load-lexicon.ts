@@ -1,5 +1,5 @@
 /**
- * Parse hub lexicon txt files (R2.1 registry-tags / R3.1 testcase-taxonomy).
+ * Parse project-local or packaged lexicon files.
  * Local index only — never dump full file into cloudPromptSlice.
  */
 
@@ -92,7 +92,7 @@ export function parseRegistryTagsLexicon(absPath: string): RegistryTagsLexicon {
   for (const raw of text.split('\n')) {
     const line = raw.trim()
     if (line.startsWith('====')) continue
-    if (/^[A-J]\.\s/.test(line) || line.startsWith('PREFIXES')) {
+    if (/^[A-K]\.\s/.test(line) || line.startsWith('PREFIXES')) {
       section = line
       continue
     }
@@ -104,6 +104,14 @@ export function parseRegistryTagsLexicon(absPath: string): RegistryTagsLexicon {
     const pref = line.match(/^(#[\w*-]+):\s/)
     if (pref && section.includes('PREFIX')) {
       prefixes.push(`${pref[1]}:`)
+      continue
+    }
+    const canonical = line.match(/^(#[\w*-]+):\s+(.+)$/)
+    if (canonical) {
+      const tag = `${canonical[1]}: ${canonical[2]}`
+      terms.push(tag)
+      const key = canonical[2]!.replace(/[|_-]+/g, ' ').trim().toLowerCase()
+      if (key) keywordHints[key] = tag
       continue
     }
     // Canonical shell IDs line
@@ -273,9 +281,10 @@ export function indexLexicons(
   cfg: ArtifactgraphConfig,
 ): Record<string, number> {
   const summary: Record<string, number> = {}
+  store.clearRegistry('lexicon:registryTags')
+  store.clearRegistry('lexicon:testTaxonomy')
   const reg = loadRegistryTagsLexicon(repoRoot, cfg)
   if (reg) {
-    store.clearRegistry('lexicon:registryTags')
     store.upsertRegistryEntry('lexicon:registryTags', '_meta', {
       path: reg.path,
       prefixes: reg.prefixes,
@@ -292,7 +301,6 @@ export function indexLexicons(
   }
   const tax = loadTestTaxonomyLexicon(repoRoot, cfg)
   if (tax) {
-    store.clearRegistry('lexicon:testTaxonomy')
     store.upsertRegistryEntry('lexicon:testTaxonomy', '_meta', {
       path: tax.path,
       types: tax.types,

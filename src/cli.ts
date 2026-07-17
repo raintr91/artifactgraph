@@ -5,13 +5,13 @@
  *   curl install.sh | sh
  *   artifactgraph init                         # agents (↑↓ · Space · Enter)
  *   artifactgraph init --target=cursor,claude --yes
- *   artifactgraph init-project --project portal
+ *   cd <product-repo> && artifactgraph init
  */
 
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { resolveProject, loadPlatformReposMap, detectStack, packageRoot } from './config/platform-repos.js'
-import { requireRepoConfig, writeBrownfieldConfig, loadRepoConfig } from './config/load-config.js'
+import { requireRepoConfig, loadRepoConfig } from './config/load-config.js'
 import { IndexStore } from './db/index-store.js'
 import { loadRegistries, indexRegistries, registryIndexSummary } from './registry/load-registries.js'
 import { analyzeSpecFile } from './analyze/analyze-spec.js'
@@ -21,6 +21,14 @@ import { runAllowlistedCommand } from './gen/run-command.js'
 import { resolveSpecPath, pathResolutionSummary } from './config/resolve-paths.js'
 import { indexLexicons, suggestTags } from './lexicon/load-lexicon.js'
 import { installAgents, AGENT_IDS } from './install/agents.js'
+import { checkboxPrompt } from './install/prompt.js'
+import {
+  installProjectAssets,
+  normalizeInstallTypes,
+  parseInstallTypes,
+  projectInstallStatus,
+  type InstallType,
+} from './install/project.js'
 
 const require = createRequire(import.meta.url)
 
@@ -36,16 +44,17 @@ function pkgVersion(): string {
 function usage(): void {
   console.log(`artifactgraph ${pkgVersion()}
 
-Wire agents (global by default — not per product repo):
+Initialize current repo + wire agents:
   init [--target=claude,cursor,codex,opencode,hermes,gemini,antigravity,kiro,kilo|auto|all]
+       [--type=common,docs,fe,be,test|all]
        [--location=global|local] [--yes] [--wsl]
        [--print-config <agent>] [--mcp-file <path>]
-       # no flags → TTY multi-select (↑↓ · Space · Enter)
+       # no flags → target + type TTY multi-select (↑↓ · Space · Enter)
   install …   # deprecated alias → init
 
-Product repo (brownfield):
+Current product repo:
   projects
-  init-project [--project <id>] [--stack <id>] [--force]   # default: cwd
+  init-project [--stack <id>] [--type <types>] [--force]   # deprecated alias
   status       [--project <id>]
   rebuild      [--project <id>]
   analyze      [--project <id>] (--spec <path> | --bullets <text>)
@@ -89,14 +98,6 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
   if (opts.deprecatedAlias) {
     console.error('note: `install` is deprecated — use `artifactgraph init`')
   }
-  // Back-compat: old `init --project` meant product brownfield
-  if (arg('--project') || arg('--stack') || has('--force')) {
-    console.error(
-      'note: product repo wire moved to `artifactgraph init-project` (routing this call)',
-    )
-    await runInitProject()
-    return
-  }
   try {
     const result = await installAgents({
       target: arg('--target'),
@@ -115,24 +116,67 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
     }
     for (const s of result.skipped) console.log(`  skip: ${s}`)
     console.log(`Agents: ${AGENT_IDS.join(' | ')}`)
-    console.log('Restart agent(s), then try tool artifactgraph_projects')
-    console.log(
-      '(Product repo: cd <repo> && artifactgraph init-project && artifactgraph rebuild)',
-    )
+    const ctx = resolveRepoContext()
+    const types = await resolveInitTypes(ctx.stack)
+    const project = installProjectAssets({
+      repoRoot: ctx.root,
+      stack: ctx.stack,
+      types,
+      force: has('--force'),
+    })
+    console.log(`Initialized ${ctx.root} (types=${project.types.join(',')})`)
+    for (const key of ['created', 'updated', 'skipped', 'conflicts'] as const) {
+      if (project[key].length) console.log(`  ${key}: ${project[key].join(', ')}`)
+    }
+    console.log('Restart agent(s), then run artifactgraph rebuild')
   } catch (err) {
     console.error(err instanceof Error ? err.message : err)
     process.exit(1)
   }
 }
 
+function suggestedTypes(stack: string): InstallType[] {
+  if (stack === 'nuxt4-nest' || stack === 'nextjs-nest') return ['fe', 'be']
+  if (stack === 'nuxt4' || stack === 'nextjs' || stack === 'dotnet-line') return ['fe']
+  if (stack === 'docs-c4') return ['docs']
+  if (stack === 'e2e-plans') return ['test']
+  if (['laravel', 'fastapi', 'dotnet-integration'].includes(stack)) return ['be']
+  return ['common']
+}
+
+async function resolveInitTypes(stack: string): Promise<InstallType[]> {
+  const requested = arg('--type')
+  if (requested) return parseInstallTypes(requested)
+  const suggested = suggestedTypes(stack)
+  if (has('--yes') || !process.stdin.isTTY || !process.stdout.isTTY) {
+    return normalizeInstallTypes(suggested)
+  }
+  const selected = await checkboxPrompt<InstallType>({
+    message: 'Which ArtifactGraph types should be installed?',
+    choices: [
+      { value: 'common', name: 'common — core skill, rule, hooks, lexicon', checked: true },
+      { value: 'docs', name: 'docs — spec/docs + legacy/parity hooks', checked: suggested.includes('docs') },
+      { value: 'fe', name: 'fe — frontend hooks', checked: suggested.includes('fe') },
+      { value: 'be', name: 'be — backend hooks', checked: suggested.includes('be') },
+      { value: 'test', name: 'test — testcase hooks + taxonomy', checked: suggested.includes('test') },
+      { value: 'all', name: 'all — every type (explicit)', checked: false },
+    ],
+  })
+  return normalizeInstallTypes(selected)
+}
+
 async function runInitProject(): Promise<void> {
+  console.error('note: `init-project` is deprecated — use `artifactgraph init`')
   const ctx = resolveRepoContext()
-  const dest = writeBrownfieldConfig(ctx.root, {
+  const result = installProjectAssets({
+    repoRoot: ctx.root,
     stack: ctx.stack,
-    projectId: ctx.id,
+    types: await resolveInitTypes(ctx.stack),
     force: has('--force'),
   })
-  console.log(`Wrote ${dest} (stack=${ctx.stack})`)
+  console.log(
+    `Initialized ${result.root} (stack=${ctx.stack}, types=${result.types.join(',')})`,
+  )
 }
 
 async function main(): Promise<void> {
@@ -178,6 +222,7 @@ async function main(): Promise<void> {
           stack: ctx.stack,
           config: cfg,
           paths: cfg ? pathResolutionSummary(ctx.root, cfg) : null,
+          harness: projectInstallStatus(ctx.root),
           packageRoot: packageRoot(),
         },
         null,
@@ -190,12 +235,19 @@ async function main(): Promise<void> {
   if (cmd === 'rebuild') {
     const cfg = requireRepoConfig(ctx.root)
     const store = new IndexStore(ctx.root)
-    const loaded = loadRegistries(ctx.root, cfg)
-    indexRegistries(store, loaded)
-    const lexicon = indexLexicons(store, ctx.root, cfg)
-    const summary = { ...registryIndexSummary(loaded), ...lexicon }
-    store.setMeta('indexSummary', JSON.stringify(summary))
-    store.close()
+    let summary: Record<string, number>
+    try {
+      summary = store.transaction(() => {
+        const loaded = loadRegistries(ctx.root, cfg)
+        indexRegistries(store, loaded)
+        const lexicon = indexLexicons(store, ctx.root, cfg)
+        const next = { ...registryIndexSummary(loaded), ...lexicon }
+        store.setMeta('indexSummary', JSON.stringify(next))
+        return next
+      })
+    } finally {
+      store.close()
+    }
     console.log(
       `Rebuilt index for ${ctx.id}: files=${summary.files} shells=${summary.designShells} common=${summary.commonIds} unit=${summary.unitPatterns} e2e=${summary.e2eBundles} lexiconHints=${summary.registryTagHints ?? 0} testTypes=${summary.testTypes ?? 0}`,
     )

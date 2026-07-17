@@ -10,7 +10,8 @@ Screen **displays** `screenData`. Action **uses** `usesData`. If `usesData` ⊄ 
 No A/B/C, no remember required, no handoff gate.
 
 ```bash
-artifactgraph parity --project portal --findings examples/parity/sample-findings.yaml
+cd <product-repo>
+artifactgraph parity --findings /path/to/sample-findings.yaml
 ```
 
 MCP: `artifactgraph_parity_check`

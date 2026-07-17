@@ -93,8 +93,10 @@ export interface InstallResult {
 
 type StdioEntry = { type?: string; command: string; args: string[] }
 
-/** Build stdio MCP entry. */
-export function buildMcpEntry(opts: { useWsl?: boolean } = {}): StdioEntry {
+/** Build stdio MCP entry, optionally pinned to the initialized project root. */
+export function buildMcpEntry(
+  opts: { useWsl?: boolean; projectRoot?: string } = {},
+): StdioEntry {
   const root = packageRoot()
   const mcpJs = path.join(root, 'bin', 'artifactgraph-mcp.mjs')
   const nodeBin = process.execPath
@@ -105,17 +107,28 @@ export function buildMcpEntry(opts: { useWsl?: boolean } = {}): StdioEntry {
     Boolean(process.env.WSL_DISTRO_NAME && winMcp)
 
   if (forceWsl) {
+    const quote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`
+    const projectArg = opts.projectRoot
+      ? ` --project-root ${quote(path.resolve(opts.projectRoot))}`
+      : ''
     return {
       type: 'stdio',
       command: 'wsl.exe',
-      args: ['-e', 'bash', '-lc', `exec '${nodeBin}' '${mcpJs}'`],
+      args: [
+        '-e',
+        'bash',
+        '-lc',
+        `exec ${quote(nodeBin)} ${quote(mcpJs)}${projectArg}`,
+      ],
     }
   }
 
+  const args = [mcpJs]
+  if (opts.projectRoot) args.push('--project-root', path.resolve(opts.projectRoot))
   return {
     type: 'stdio',
     command: nodeBin,
-    args: [mcpJs],
+    args,
   }
 }
 
@@ -235,7 +248,7 @@ export function agentConfigPath(
       case 'cursor':
         return path.join(cwd, '.cursor', 'mcp.json')
       case 'claude':
-        return path.join(cwd, '.claude.json')
+        return path.join(cwd, '.mcp.json')
       case 'gemini':
         return path.join(cwd, '.gemini', 'settings.json')
       case 'kiro':
@@ -419,7 +432,13 @@ export function mergeMcpJson(file: string, entry: StdioEntry): string {
   if (existsSync(file)) {
     const raw = readFileSync(file, 'utf8').trim()
     if (raw) {
-      doc = JSON.parse(raw) as typeof doc
+      try {
+        doc = JSON.parse(raw) as typeof doc
+      } catch (error) {
+        throw new Error(
+          `Cannot merge MCP config ${file}: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
     }
   }
   doc.mcpServers ??= {}
@@ -620,7 +639,7 @@ export async function installAgents(opts: InstallOptions = {}): Promise<InstallR
   }
 
   const detected = detectAgents()
-  let location: InstallLocation = opts.location ?? 'global'
+  let location: InstallLocation = opts.location ?? 'local'
   let targets: AgentId[]
 
   if (opts.mcpFile) {
@@ -636,17 +655,20 @@ export async function installAgents(opts: InstallOptions = {}): Promise<InstallR
 
   if (opts.yes || opts.target) {
     targets = parseTargets(opts.target ?? 'auto', detected)
-    location = opts.location ?? 'global'
+    location = opts.location ?? 'local'
   } else if (!process.stdin.isTTY) {
     targets = parseTargets('auto', detected)
-    location = opts.location ?? 'global'
+    location = opts.location ?? 'local'
   } else {
     const picked = await promptInteractive(detected)
     targets = picked.targets
     location = opts.location ?? picked.location
   }
 
-  const baseEntry = buildMcpEntry({ useWsl: opts.useWsl })
+  const baseEntry = buildMcpEntry({
+    useWsl: opts.useWsl,
+    projectRoot: location === 'local' ? process.cwd() : undefined,
+  })
   const written: InstallResult['written'] = []
   const skipped: string[] = []
 

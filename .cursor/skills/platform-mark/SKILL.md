@@ -9,7 +9,8 @@ disable-model-invocation: true
 
 Trong **artifactgraph**: tags/lexicon phục vụ MCP `suggest_tags`, `analyze`, `draftTags` — **không** bulk-edit `registries/*.json` tại đây (SSOT = product git).
 
-**Lexicon paths:** `vocabularies` trong product `artifactgraph.json` → `@base-docs/.../registry-tags.en.txt` (FE+BE) · `@base-tests/.../testcase-taxonomy.en.txt` (plans)
+**Lexicon paths:** product-local `artifactgraph/lexicon/registry-tags.en.txt`
+(FE+BE+docs) · `artifactgraph/lexicon/testcase-taxonomy.en.txt` (test/plans)
 
 **MCP lanes:** `artifactgraph_suggest_tags` → `fe` | `docs` | `be` | `plans`
 

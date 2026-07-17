@@ -9,13 +9,27 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { registerTools } from './tools.js'
+import { packageRoot } from '../config/platform-repos.js'
+
+function packageVersion(): string {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(path.join(packageRoot(), 'package.json'), 'utf8'),
+    ) as { version?: string }
+    return pkg.version ?? '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
+}
 
 /** Build the MCP server instance (also usable in tests without connecting). */
 export function createServer(): McpServer {
   const server = new McpServer({
     name: 'artifactgraph',
-    version: '0.1.0',
+    version: packageVersion(),
   })
   registerTools(server)
   return server

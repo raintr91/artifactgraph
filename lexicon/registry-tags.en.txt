@@ -1,0 +1,149 @@
+# ArtifactGraph generic registry-tag vocabulary.
+# Lexicon only; product registries/*.json remain SSOT.
+
+================================================================================
+PREFIXES
+================================================================================
+#shell:       page / screen templates
+#widget:      field and composite controls
+#pattern:     product or page flows
+#behavior:    interaction and feedback
+#style:       visual density / theme
+#region:      layout regions
+#api:         HTTP/resource contract
+#logic:       business rules, jobs, events
+#data:        field empty/PII policies
+#auth:        authentication
+#authz:       authorization
+#tenancy:     tenant boundary
+#process:     capability / process / E2E / use case / scenario
+#common:      promoted shared artifact
+#needs-*      missing artifact
+
+================================================================================
+A. UI — shells / page types
+================================================================================
+List / Index / Directory
+Detail / Show / Read-only view
+Create / New / Form
+Edit / Update
+Dashboard / Overview
+Wizard / Stepper / Multi-step
+Settings / Preferences
+Workspace / Canvas
+DataListPage · DataDetailPage · DataFormPage · DashboardPage · WizardPage · SettingsPage · WorkspacePage
+
+================================================================================
+B. UI — layout / controls
+================================================================================
+Header / Sidebar / Breadcrumb / Toolbar / Filters / Content / Footer
+Drawer / Modal / Dialog / Popover / Toast / Banner / Tabs / Accordion
+Text field / Textarea / Number / Currency / Date / Select / Combobox
+Checkbox / Radio / Switch / File upload / Password / Search field
+Data table / Grid / Kanban / Calendar / Chart / KPI card
+Status chip / Badge / Pill
+Pagination / Sort control / Bulk actions / Row actions
+
+================================================================================
+C. UI — behavior
+================================================================================
+Loading / Skeleton / Spinner
+Optimistic update
+Debounce / Throttle search
+Confirm destructive
+Soft delete / Archive
+Autosave / Dirty guard
+Inline edit
+Responsive / Compact / Dense
+Accessibility / Focus trap
+Permission-aware / RBAC-gated
+
+================================================================================
+F. Product patterns
+================================================================================
+CRUD
+Search / Select / Act
+Import / Export / Bulk upload
+Approval / Workflow / Review queue
+Audit log / Activity feed
+Assignment / Ownership
+Feature flag / Beta
+Multi-tenant / Org switcher
+Preview / Draft / Publish
+
+================================================================================
+G. API — resource & contract
+================================================================================
+Resource / Collection / Item
+Endpoint / Operation / Action
+Idempotent / Upsert / Batch / Bulk
+Partial update / PATCH
+Soft delete / Restore
+Pagination / Filter / Sort / Search
+Rate limit / Versioned API / Webhook
+Long-running / Job / Async / Realtime
+#api: op:list|create|update|delete|show
+#api: pagination:cursor
+#api: async-job
+
+================================================================================
+H. API — AuthN / AuthZ / tenancy
+================================================================================
+Authentication / Authorization
+Session / JWT / Refresh token
+OAuth / SSO / API key / Service account
+Scope / Permission / Role / Policy
+Tenant / Workspace / Org
+Row-level security
+
+================================================================================
+I. Logic — domain & consistency
+================================================================================
+Business rule / Invariant
+Validation / Uniqueness / Conflict
+State machine / Status transition
+Transaction / Unit of work
+Event / Domain event
+Saga / Compensation / Outbox
+Retry / Backoff / Dead letter / Circuit breaker
+
+================================================================================
+J. Data field policies
+================================================================================
+Nullable / Optional / Required
+Empty string vs null vs omit
+Default value / Computed / Derived
+Immutable after create
+PII / Sensitive / Masked
+#data: empty:null|empty-string|omit|empty-array
+#data: pii
+#data: immutable
+
+================================================================================
+K. Business architecture — process hierarchy & synonyms
+================================================================================
+Business Capability
+Business Process
+End-to-End Flow / E2E Flow
+Use Case
+Scenario
+Functional Requirement
+Business Flow / Workflow / BPMN Process
+Journey / Customer Journey
+Cross-Service Flow / Service Orchestration / Service Choreography
+Saga Flow / Distributed Transaction
+Domain Workflow / Event Flow / Command Flow
+#process: business-capability
+#process: business-process
+#process: e2e-flow
+#process: use-case
+#process: scenario
+#process: workflow
+#process: journey
+#process: cross-service-flow
+#process: orchestration
+#process: choreography
+#process: saga
+#process: domain-flow
+#process: event-flow
+#process: command-flow

@@ -1,0 +1,112 @@
+# ArtifactGraph generic test-case taxonomy.
+# Lexicon only; product test cases and suites remain SSOT.
+
+================================================================================
+LEVEL 1 — TEST SCENARIO
+================================================================================
+Authentication
+Authorization
+Validation
+Security
+Session
+Performance
+Compatibility
+Accessibility
+Error Handling
+Localization
+Usability
+Data Integrity
+Workflow
+Permissions
+Notifications
+Import / Export
+Search / Filter
+Audit / Logging
+
+================================================================================
+LEVEL 2 — TEST CATEGORIES
+================================================================================
+Required field
+Format validation
+Length validation
+Boundary validation
+Business validation
+Valid credential
+Invalid credential
+Role allow
+Role deny
+Happy path transition
+Illegal transition
+Concurrent edit
+
+================================================================================
+LEVEL 3 — TEST CASE NAMING
+================================================================================
+Prefer action + condition + expected result.
+
+================================================================================
+MODERN CASE TYPES
+================================================================================
+happy-path           Successful path / intended outcome
+validation           Input / form / business validation rejection
+boundary             Min/max and neighboring values
+authorization        Role allow/deny and privilege checks
+state-transition     Legal and illegal status changes
+exception            Errors, timeouts, and surfaced failures
+concurrency          Multi-user / multi-tab behavior
+audit                Audit and logging outcomes
+accessibility        Keyboard, screen reader, contrast, focus
+localization         Timezone, currency, language, date format
+data-integrity       Visible consistency after operations
+
+================================================================================
+THREE FILTER DIMENSIONS
+================================================================================
+business:
+crud
+workflow
+permission
+business-rule
+
+technical:
+validation
+ui
+api
+database
+messaging
+realtime
+file-storage
+offline
+retry
+
+quality:
+security
+performance
+reliability
+recovery
+audit
+logging
+monitoring
+accessibility
+localization
+compatibility
+
+================================================================================
+CASE YAML FIELD VOCABULARY
+================================================================================
+id
+title
+summary
+refs
+coverage
+priority
+preconditions
+testData
+steps
+expected
+postcondition
+automation
+tags
+dimensions.business
+dimensions.technical
+dimensions.quality

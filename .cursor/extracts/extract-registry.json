@@ -15,8 +15,7 @@
     ],
     "artifactgraph": [
       ".cursor/extracts/core/agent-discipline.md",
-      ".cursor/extracts/artifactgraph-phase-hooks.md",
-      ".cursor/extracts/artifact-graph.md"
+      ".cursor/extracts/artifactgraph-hooks-core.md"
     ]
   }
 }

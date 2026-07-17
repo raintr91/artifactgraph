@@ -1,0 +1,15 @@
+---
+description: ArtifactGraph local-first MCP protocol
+alwaysApply: false
+---
+
+# ArtifactGraph
+
+- Product registries, templates, lexicons, and config are repository-local SSOT.
+- Use local analyze/grill/parity/suggest before requesting cloud work.
+- Never dump full registries or lexicons into `cloudPromptSlice`.
+- Run only generation keys allowlisted by the current repo.
+- Promote reviewed artifacts in the product repo, then rebuild the local index.
+- Do not depend on `platform-repos.json`, `base-docs`, or `base-tests`.
+
+Hooks: `.cursor/extracts/artifactgraph-hooks-core.md`

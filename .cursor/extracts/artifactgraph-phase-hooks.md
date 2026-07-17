@@ -27,7 +27,8 @@ Cloud **không** viết registry. Promote = docs `DESIGN-REGISTRY-PROMOTION` / `
 
 ## Shared protocol (every artifact skill)
 
-1. If MCP available: `artifactgraph_status` / ensure `artifactgraph.json` (`init-project` once per product repo). Prefer **`artifactgraph init --location=local`**. Else CLI.
+1. Run `artifactgraph init` once in the current product repo, then use
+   `artifactgraph_status`; project-local MCP is the default.
 2. **Local:** `artifactgraph_analyze` or `artifactgraph_grill_check`; after legacy also **`artifactgraph_parity_check`**.
 3. Show `askUser[]` — A/B/C for grill + **parity-drift** only. **context-orphan** = warn only.
 4. On confirm: `artifactgraph_remember` (`kind=grill|parity`).
@@ -89,7 +90,7 @@ Cloud **không** viết registry. Promote = docs `DESIGN-REGISTRY-PROMOTION` / `
 
 | Topic | Doc |
 |-------|-----|
-| Protocol + ownership | `base-docs/platform/toolchain/ARTIFACTGRAPH-INTERNALS.md` |
+| Protocol + ownership | package `docs/INTERNALS.md` |
 | `#needs-component` | `NEEDS-COMPONENT-FLOW.md` |
 | Promote Mo* | `DESIGN-REGISTRY-PROMOTION.md` |
 | Unit promote | `UNIT-REGISTRY-PROMOTION.md` |

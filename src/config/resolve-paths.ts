@@ -1,64 +1,53 @@
 /**
- * Multi-hub path resolution.
+ * Standalone project path resolution.
  *
  * Paths may be:
  * - absolute
- * - relative to product `repoRoot` (incl. `../base-docs/...`)
- * - `@projectId` or `@projectId/sub/path` via platform-repos.json (workspace map)
+ * - relative to the current product `repoRoot`
  *
- * Prefer `@base-docs/...` / `@base-tests/...` so non-sibling layouts work
- * when ARTIFACTGRAPH_WORKSPACE (or workspace.path) points at the bases folder.
+ * External `@projectId` paths are legacy and disabled in normal runtime.
  */
 
 import { existsSync, globSync } from 'node:fs'
 import path from 'node:path'
 import type { ArtifactgraphConfig } from '../types.js'
-import { loadPlatformReposMap, resolveProject } from './platform-repos.js'
+import { packageRoot } from './platform-repos.js'
 
 /** Resolve one config path (specRoot, lexicon, command --dir token, …). */
 export function resolveConfigPath(repoRoot: string, relOrAbs: string): string {
   if (!relOrAbs) return path.resolve(repoRoot)
   if (path.isAbsolute(relOrAbs)) return relOrAbs
   if (relOrAbs.startsWith('@')) {
-    const rest = relOrAbs.slice(1)
-    const slash = rest.indexOf('/')
-    const projectId = slash >= 0 ? rest.slice(0, slash) : rest
-    const sub = slash >= 0 ? rest.slice(slash + 1) : ''
-    const project = resolveProject(projectId)
-    return sub ? path.join(project.root, sub) : project.root
+    throw new Error(
+      `External project path "${relOrAbs}" is disabled; use a path inside the current repo`,
+    )
   }
   return path.resolve(repoRoot, relOrAbs)
 }
 
-/** Hub project ids (defaults: base-docs / base-tests). */
+/** Legacy status shape; standalone runtime has no implicit hubs. */
 export function resolveHubRoots(
   _repoRoot: string,
-  cfg: ArtifactgraphConfig,
+  _cfg: ArtifactgraphConfig,
 ): { docs?: string; tests?: string } {
-  const docsId = cfg.hubs?.docs ?? 'base-docs'
-  const testsId = cfg.hubs?.tests ?? 'base-tests'
-  const out: { docs?: string; tests?: string } = {}
-  try {
-    out.docs = resolveProject(docsId).root
-  } catch {
-    /* optional hub */
-  }
-  try {
-    out.tests = resolveProject(testsId).root
-  } catch {
-    /* optional hub */
-  }
-  return out
+  return {}
 }
 
 /** Absolute directories listed in `specRoots`. */
 export function resolveSpecRoots(repoRoot: string, cfg: ArtifactgraphConfig): string[] {
-  return (cfg.specRoots ?? []).map((r) => resolveConfigPath(repoRoot, r))
+  return (cfg.specRoots ?? []).flatMap((root) => {
+    try {
+      const resolved = resolveConfigPath(repoRoot, root)
+      return existsSync(resolved) ? [resolved] : []
+    } catch {
+      return []
+    }
+  })
 }
 
 /**
  * Resolve a spec/testcase path for analyze/grill.
- * Tries: absolute → @hub → repoRoot → each specRoot.
+ * Tries: absolute → repoRoot → each explicitly configured local specRoot.
  */
 export function resolveSpecPath(
   repoRoot: string,
@@ -66,7 +55,7 @@ export function resolveSpecPath(
   specPath: string,
 ): string {
   if (path.isAbsolute(specPath)) return specPath
-  if (specPath.startsWith('@')) return resolveConfigPath(repoRoot, specPath)
+  if (specPath.startsWith('@')) return path.resolve(repoRoot, specPath)
 
   const underRepo = path.resolve(repoRoot, specPath)
   if (existsSync(underRepo)) return underRepo
@@ -76,51 +65,18 @@ export function resolveSpecPath(
     if (existsSync(candidate)) return candidate
   }
 
-  const hubs = resolveHubRoots(repoRoot, cfg)
-  for (const root of [hubs.docs, hubs.tests].filter(Boolean) as string[]) {
-    const candidate = path.resolve(root, specPath)
-    if (existsSync(candidate)) return candidate
-  }
-
   return underRepo
 }
 
 /**
- * Expand `gapSources` globs under product repo + resolved hubs/specRoots.
- * Patterns may use @hub prefixes or repo-relative globs for HANDOFF / manifests.
+ * Expand repo-relative `gapSources` globs under the current product only.
  */
 export function resolveGapSourceFiles(repoRoot: string, cfg: ArtifactgraphConfig): string[] {
-  const hubs = resolveHubRoots(repoRoot, cfg)
-  const searchRoots = [
-    repoRoot,
-    ...resolveSpecRoots(repoRoot, cfg),
-    hubs.docs,
-    hubs.tests,
-  ].filter((r): r is string => Boolean(r))
-
-  const uniqueRoots = [...new Set(searchRoots.map((r) => path.resolve(r)))]
   const found = new Set<string>()
 
   for (const raw of cfg.gapSources ?? []) {
-    if (raw.startsWith('@')) {
-      const rest = raw.slice(1)
-      const slash = rest.indexOf('/')
-      if (slash < 0) continue
-      const projectId = rest.slice(0, slash)
-      const pattern = rest.slice(slash + 1)
-      let cwd: string
-      try {
-        cwd = resolveProject(projectId).root
-      } catch {
-        continue
-      }
-      for (const hit of safeGlob(pattern, cwd)) found.add(hit)
-      continue
-    }
-
-    for (const cwd of uniqueRoots) {
-      for (const hit of safeGlob(raw, cwd)) found.add(hit)
-    }
+    if (raw.startsWith('@')) continue
+    for (const hit of safeGlob(raw, repoRoot)) found.add(hit)
   }
 
   return [...found].sort()
@@ -136,15 +92,11 @@ function safeGlob(pattern: string, cwd: string): string[] {
   }
 }
 
-/** Expand `@projectId[/…]` tokens inside allowlisted argv (after `{spec}` materialize). */
+/** Reject legacy external-project tokens inside allowlisted argv. */
 export function expandArgvPaths(repoRoot: string, argv: string[]): string[] {
   return argv.map((part) => {
     if (!part.startsWith('@')) return part
-    try {
-      return resolveConfigPath(repoRoot, part)
-    } catch {
-      return part
-    }
+    return resolveConfigPath(repoRoot, part)
   })
 }
 
@@ -156,8 +108,16 @@ export function resolveVocabularyPath(
 ): string | null {
   const rel = cfg.vocabularies?.[key]
   if (!rel) return null
-  const abs = resolveConfigPath(repoRoot, rel)
-  return existsSync(abs) ? abs : null
+  try {
+    const abs = resolveConfigPath(repoRoot, rel)
+    if (existsSync(abs)) return abs
+  } catch {
+    // Legacy external path: fall through to the packaged standalone baseline.
+  }
+  const filename =
+    key === 'registryTags' ? 'registry-tags.en.txt' : 'testcase-taxonomy.en.txt'
+  const baseline = path.join(packageRoot(), 'lexicon', filename)
+  return existsSync(baseline) ? baseline : null
 }
 
 /** Summarize resolved roots for status / smoke. */
@@ -171,6 +131,5 @@ export function pathResolutionSummary(repoRoot: string, cfg: ArtifactgraphConfig
       registryTags: resolveVocabularyPath(repoRoot, cfg, 'registryTags'),
       testTaxonomy: resolveVocabularyPath(repoRoot, cfg, 'testTaxonomy'),
     },
-    workspaceRoot: loadPlatformReposMap().workspaceRoot,
   }
 }
