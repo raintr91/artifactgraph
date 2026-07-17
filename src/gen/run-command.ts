@@ -3,7 +3,7 @@
  *
  * Security / token goal:
  * - Agent must NOT invent shell commands
- * - MCP substitutes {spec} etc. then expands @projectId paths, then runs fixed argv
+ * - MCP substitutes {spec} etc., rejects legacy external paths, then runs fixed argv
  */
 
 import { spawnSync } from 'node:child_process'

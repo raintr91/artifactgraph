@@ -125,5 +125,5 @@ export function detectStack(repoRoot: string): string {
   if (existsSync(path.join(repoRoot, 'artisan')) || existsSync(path.join(repoRoot, 'src', 'make_help.md'))) return 'laravel'
   if (existsSync(path.join(repoRoot, 'Integration.sln'))) return 'dotnet-integration'
   if (existsSync(path.join(repoRoot, 'Line.sln'))) return 'dotnet-line'
-  return 'nuxt4'
+  return 'generic'
 }

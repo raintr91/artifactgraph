@@ -24,25 +24,14 @@
     "registries/common.registry.json"
   ],
   "gapSources": [
-    "@base-docs/product/**/generated/HANDOFF.md",
-    "@base-docs/product/**/generated/UNIT-HANDOFF.md",
-    "@base-docs/product/**/generated/codegen.manifest.json",
     "**/generated/HANDOFF.md",
     "**/generated/UNIT-HANDOFF.md",
     "**/generated/codegen.manifest.json"
   ],
-  "specRoots": [
-    "@base-docs/product",
-    "@base-tests/cases",
-    "@base-tests/suites"
-  ],
+  "specRoots": [],
   "templates": {
     "root": "codegen/templates",
     "engine": "scriban"
-  },
-  "hubs": {
-    "docs": "base-docs",
-    "tests": "base-tests"
   },
   "dsl": {
     "ssot": "product-repo",
@@ -65,7 +54,6 @@
     }
   },
   "vocabularies": {
-    "registryTags": "@base-docs/platform/toolchain/lexicon/registry-tags.en.txt",
-    "testTaxonomy": "@base-tests/catalog/lexicon/testcase-taxonomy.en.txt"
+    "registryTags": "artifactgraph/lexicon/registry-tags.en.txt"
   }
 }

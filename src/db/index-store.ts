@@ -74,6 +74,19 @@ export class IndexStore {
     this.db.prepare(`DELETE FROM registry_entry WHERE registry = ?`).run(registry)
   }
 
+  /** Run a rebuild atomically so parse/index failures cannot leave partial state. */
+  transaction<T>(work: () => T): T {
+    this.db.exec('BEGIN IMMEDIATE')
+    try {
+      const result = work()
+      this.db.exec('COMMIT')
+      return result
+    } catch (error) {
+      this.db.exec('ROLLBACK')
+      throw error
+    }
+  }
+
   listRegistryEntries(registry: string): Array<{ entryId: string; payload: unknown }> {
     const rows = this.db
       .prepare(`SELECT entry_id, payload FROM registry_entry WHERE registry = ?`)

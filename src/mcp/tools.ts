@@ -6,9 +6,12 @@
  */
 
 import { z } from 'zod'
+import path from 'node:path'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { resolveProject } from '../config/platform-repos.js'
-import { loadRepoConfig, requireRepoConfig, writeBrownfieldConfig } from '../config/load-config.js'
+import {
+  loadEffectiveRepoConfig,
+  loadRepoConfig,
+} from '../config/load-config.js'
 import { IndexStore } from '../db/index-store.js'
 import { loadRegistries, indexRegistries, registryIndexSummary } from '../registry/load-registries.js'
 import { analyzeSpecFile } from '../analyze/analyze-spec.js'
@@ -16,17 +19,18 @@ import { analyzeBullets } from '../analyze/analyze-bullets.js'
 import { grillCheck, recordGrillDecision } from '../analyze/grill-check.js'
 import { parityCheck, recordParityDecision } from '../analyze/parity-check.js'
 import { runAllowlistedCommand } from '../gen/run-command.js'
-import {
-  loadPlatformReposMap,
-  resolveHarnessProfile,
-  resolveHarnessSkills,
-} from '../config/platform-repos.js'
+import { detectStack } from '../config/platform-repos.js'
 import {
   pathResolutionSummary,
   resolveGapSourceFiles,
   resolveSpecPath,
 } from '../config/resolve-paths.js'
 import { indexLexicons, suggestTags } from '../lexicon/load-lexicon.js'
+import {
+  installProjectAssets,
+  projectInstallStatus,
+  type InstallType,
+} from '../install/project.js'
 
 function text(data: unknown) {
   return {
@@ -34,44 +38,48 @@ function text(data: unknown) {
   }
 }
 
+function currentProject() {
+  const root = path.resolve(process.env.ARTIFACTGRAPH_PROJECT_ROOT ?? process.cwd())
+  const config = loadRepoConfig(root)
+  return {
+    id: config?.projectId ?? path.basename(root),
+    root,
+    stack: config?.stack ?? detectStack(root),
+    role: 'local',
+    repo: path.basename(root),
+  }
+}
+
 /** Register all tools on the server. */
 export function registerTools(server: McpServer): void {
-  /** List platform-bases projects from this package's platform-repos.json. */
+  /** Show the current repository used by this MCP process. */
   server.tool(
     'artifactgraph_projects',
-    'List platform-bases projects (id, stack, root, role, harnessProfile, expectedSkills) from artifactgraph/platform-repos.json',
+    'Show the current repository (legacy compatibility; product tools use cwd directly)',
     {},
-    async () => {
-      const map = loadPlatformReposMap()
-      return text({
-        defaultGroup: map.defaultGroup,
-        harness: map.harness,
-        projects: Object.entries(map.projects).map(([id, p]) => ({
-          id,
-          ...p,
-          harnessProfile: resolveHarnessProfile(id, map),
-          expectedSkills: resolveHarnessSkills(id, map),
-        })),
-      })
-    },
+    async () => text({ projects: [currentProject()] }),
   )
 
-  /** Brownfield: write artifactgraph.json into a product repo (CLI: init-project). */
+  /** Initialize/update ArtifactGraph assets in the current repo. */
   server.tool(
     'artifactgraph_init',
-    'Wire brownfield artifactgraph.json into a platform project (CLI: artifactgraph init-project; agents use CLI init)',
+    'Initialize/update config, lexicons, and MCP DNA in the current repository',
     {
-      projectId: z.string().describe('e.g. portal, nextjs, fast-api-base'),
+      types: z
+        .array(z.enum(['common', 'docs', 'fe', 'be', 'test', 'all']))
+        .optional()
+        .describe('MCP DNA types to install; default common'),
       force: z.boolean().optional().describe('Overwrite existing artifactgraph.json'),
     },
-    async ({ projectId, force }) => {
-      const project = resolveProject(projectId)
-      const dest = writeBrownfieldConfig(project.root, {
+    async ({ types, force }) => {
+      const project = currentProject()
+      const result = installProjectAssets({
+        repoRoot: project.root,
         stack: project.stack,
-        projectId,
+        types: (types ?? ['common']) as InstallType[],
         force: force ?? false,
       })
-      return text({ ok: true, configPath: dest, root: project.root, stack: project.stack })
+      return text({ ok: true, ...result, stack: project.stack })
     },
   )
 
@@ -79,18 +87,28 @@ export function registerTools(server: McpServer): void {
   server.tool(
     'artifactgraph_rebuild',
     'Rebuild .artifactgraph/index.db from product registries/*.json (git remains SSOT; MCP never owns registry files)',
-    { projectId: z.string() },
-    async ({ projectId }) => {
-      const project = resolveProject(projectId)
-      const cfg = requireRepoConfig(project.root)
+    {},
+    async () => {
+      const project = currentProject()
+      const cfg = loadEffectiveRepoConfig(project.root)
       const store = new IndexStore(project.root)
-      const loaded = loadRegistries(project.root, cfg)
-      indexRegistries(store, loaded)
-      const lexicon = indexLexicons(store, project.root, cfg)
-      const summary = { ...registryIndexSummary(loaded), ...lexicon }
-      store.setMeta('indexSummary', JSON.stringify(summary))
-      store.setMeta('rebuiltAt', new Date().toISOString())
-      store.close()
+      let loaded
+      let summary
+      try {
+        const rebuilt = store.transaction(() => {
+          const nextLoaded = loadRegistries(project.root, cfg)
+          indexRegistries(store, nextLoaded)
+          const lexicon = indexLexicons(store, project.root, cfg)
+          const nextSummary = { ...registryIndexSummary(nextLoaded), ...lexicon }
+          store.setMeta('indexSummary', JSON.stringify(nextSummary))
+          store.setMeta('rebuiltAt', new Date().toISOString())
+          return { loaded: nextLoaded, summary: nextSummary }
+        })
+        loaded = rebuilt.loaded
+        summary = rebuilt.summary
+      } finally {
+        store.close()
+      }
       return text({
         ok: true,
         ssot: 'product-repo',
@@ -111,13 +129,12 @@ export function registerTools(server: McpServer): void {
     'artifactgraph_analyze',
     'Local preflight: analyze ir/spec.yaml and/or bullets → gaps, draft tags, cloudPromptSlice',
     {
-      projectId: z.string(),
       specPath: z.string().optional().describe('Path to ir/spec.yaml (relative to repo or absolute)'),
       bullets: z.string().optional().describe('Free-text bullets when IR does not exist yet'),
     },
-    async ({ projectId, specPath, bullets }) => {
-      const project = resolveProject(projectId)
-      const cfg = requireRepoConfig(project.root)
+    async ({ specPath, bullets }) => {
+      const project = currentProject()
+      const cfg = loadEffectiveRepoConfig(project.root)
       const store = new IndexStore(project.root)
       let result
       if (specPath) {
@@ -138,13 +155,12 @@ export function registerTools(server: McpServer): void {
     'artifactgraph_grill_check',
     'Grill helper: missing hashtags / needs-* candidates + A/B/C askUser prompts',
     {
-      projectId: z.string(),
       specPath: z.string().optional(),
       bullets: z.string().optional(),
     },
-    async ({ projectId, specPath, bullets }) => {
-      const project = resolveProject(projectId)
-      const cfg = requireRepoConfig(project.root)
+    async ({ specPath, bullets }) => {
+      const project = currentProject()
+      const cfg = loadEffectiveRepoConfig(project.root)
       const store = new IndexStore(project.root)
       const resolvedSpec = specPath ? resolveSpecPath(project.root, cfg, specPath) : undefined
       const result = grillCheck({
@@ -167,7 +183,6 @@ export function registerTools(server: McpServer): void {
     'artifactgraph_parity_check',
     'Local parity: scan module legacy.fields and/or ingest parityFindings → parity-drift + askUser',
     {
-      projectId: z.string(),
       moduleDir: z
         .string()
         .optional()
@@ -175,15 +190,15 @@ export function registerTools(server: McpServer): void {
       findingsPath: z.string().optional().describe('YAML/JSON with parityFindings[] from cloud'),
       findingsJson: z.string().optional().describe('Inline JSON: { parityFindings: [...] }'),
     },
-    async ({ projectId, moduleDir, findingsPath, findingsJson }) => {
+    async ({ moduleDir, findingsPath, findingsJson }) => {
       if (!moduleDir && !findingsPath && !findingsJson) {
         throw new Error('Provide moduleDir and/or findingsPath / findingsJson')
       }
-      const project = resolveProject(projectId)
+      const project = currentProject()
       const store = new IndexStore(project.root)
       const result = parityCheck({
         repoRoot: project.root,
-        projectId,
+        projectId: project.id,
         moduleDir,
         findingsPath,
         findingsJson,
@@ -199,7 +214,6 @@ export function registerTools(server: McpServer): void {
     'artifactgraph_remember',
     'Store grill or parity confirm in SQLite so later analyze can skip cloud / re-ask',
     {
-      projectId: z.string(),
       subject: z.string().describe('e.g. column:status or password.min (parity id)'),
       choice: z.enum(['A', 'B', 'C']),
       kind: z
@@ -208,8 +222,8 @@ export function registerTools(server: McpServer): void {
         .describe('Default grill; use parity for parity-drift confirms'),
       payloadJson: z.string().optional().describe('Extra JSON object as string'),
     },
-    async ({ projectId, subject, choice, kind, payloadJson }) => {
-      const project = resolveProject(projectId)
+    async ({ subject, choice, kind, payloadJson }) => {
+      const project = currentProject()
       const store = new IndexStore(project.root)
       const payload = payloadJson ? JSON.parse(payloadJson) : {}
       if (kind === 'parity') recordParityDecision(store, subject, choice, payload)
@@ -224,13 +238,12 @@ export function registerTools(server: McpServer): void {
     'artifactgraph_gen',
     'Run allowlisted DSL gen from artifactgraph.json (docsRender, specSplit, gen, unitGen, testcaseGen, …). Registry promote stays in product repo.',
     {
-      projectId: z.string(),
       commandKey: z.string().describe('Key in artifactgraph.json commands'),
       spec: z.string().optional().describe('Substituted for {spec} (bundle path, ir/spec, or testcase path)'),
     },
-    async ({ projectId, commandKey, spec }) => {
-      const project = resolveProject(projectId)
-      const cfg = requireRepoConfig(project.root)
+    async ({ commandKey, spec }) => {
+      const project = currentProject()
+      const cfg = loadEffectiveRepoConfig(project.root)
       const result = runAllowlistedCommand(project.root, cfg, commandKey, {
         spec: spec ?? '',
       })
@@ -243,13 +256,12 @@ export function registerTools(server: McpServer): void {
     'artifactgraph_gaps',
     'Same as analyze but returns only gaps[] + cloudPromptSlice (token-friendly)',
     {
-      projectId: z.string(),
       specPath: z.string().optional(),
       bullets: z.string().optional(),
     },
-    async ({ projectId, specPath, bullets }) => {
-      const project = resolveProject(projectId)
-      const cfg = requireRepoConfig(project.root)
+    async ({ specPath, bullets }) => {
+      const project = currentProject()
+      const cfg = loadEffectiveRepoConfig(project.root)
       const store = new IndexStore(project.root)
       const full = specPath
         ? analyzeSpecFile(project.root, cfg, resolveSpecPath(project.root, cfg, specPath), store)
@@ -270,16 +282,15 @@ export function registerTools(server: McpServer): void {
    */
   server.tool(
     'artifactgraph_suggest_tags',
-    'Suggest draftTags / taxonomy enums from hub lexicons (lane=fe|docs|be|plans). Local-first.',
+    'Suggest draftTags / taxonomy enums from project/package lexicons (lane=fe|docs|be|plans).',
     {
-      projectId: z.string(),
       lane: z.enum(['fe', 'docs', 'plans', 'be']).describe('fe/docs → registry-tags (UI); be → API tags; plans → testcase-taxonomy'),
       bullets: z.string().optional().describe('Free-text for keyword match'),
       limit: z.number().optional().describe('Max draft tags / matches (default 12)'),
     },
-    async ({ projectId, lane, bullets, limit }) => {
-      const project = resolveProject(projectId)
-      const cfg = requireRepoConfig(project.root)
+    async ({ lane, bullets, limit }) => {
+      const project = currentProject()
+      const cfg = loadEffectiveRepoConfig(project.root)
       const result = suggestTags({
         repoRoot: project.root,
         cfg,
@@ -293,11 +304,18 @@ export function registerTools(server: McpServer): void {
 
   /** Show config + DSL lanes + whether product is wired. */
   server.tool(
+    'artifactgraph_harness_status',
+    'Show installed ArtifactGraph MCP DNA types and managed-file drift in the current repo',
+    {},
+    async () => text(projectInstallStatus(currentProject().root)),
+  )
+
+  server.tool(
     'artifactgraph_status',
     'Show project root, stack, dsl lanes, command keys; registries SSOT = product repo paths',
-    { projectId: z.string() },
-    async ({ projectId }) => {
-      const project = resolveProject(projectId)
+    {},
+    async () => {
+      const project = currentProject()
       const cfg = loadRepoConfig(project.root)
       let index: Record<string, number> | null = null
       let rebuiltAt: string | null = null
@@ -320,7 +338,7 @@ export function registerTools(server: McpServer): void {
         ssot: {
           registries: cfg?.registries ?? [],
           templates: cfg?.templates ?? null,
-          note: 'Registries + hbs live in product repo; lexicons on hubs; MCP only indexes + runs allowlisted gen',
+          note: 'Registries, templates, and installed lexicons live in the current product repo; MCP indexes and runs allowlisted gen',
         },
         paths,
         gapSourceSample: gapFiles,

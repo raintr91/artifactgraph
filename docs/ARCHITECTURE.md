@@ -1,4 +1,4 @@
-# Architecture — artifactgraph MCP (v0.1)
+# Architecture — ArtifactGraph MCP
 
 Learning map for building more MCPs later.
 
@@ -11,21 +11,19 @@ analyze/*                        ← local intelligence (gaps, bullets, grill)
 gen/run-command.ts               ← allowlisted spawn only
 registry/*                       ← read product registries/
 db/index-store.ts                ← SQLite cache + confirm memory
-config/*                         ← platform-repos + artifactgraph.json
+config/*                         ← local artifactgraph.json + path policy
+install/project.ts               ← type assets + safe managed-file updates
 stacks/*.json                    ← brownfield presets per stack
-platform-repos.json              ← map projectId → absolute repo root
+harness/* + lexicon/*            ← package baselines copied by init
 ```
 
 ## Local-first flow
 
-1. `init` → wire agents (Cursor / Claude / Kilo MCP)
-2. `init-project` → write `artifactgraph.json` in product repo (commands + registry paths)
-3. `rebuild` → index registries into `.artifactgraph/`
-4. `analyze` / `parity` → local gaps; cloud only gets `cloudPromptSlice`
-2. `rebuild` → fill `.artifactgraph/index.db` from registries (git still SSOT)
-3. `analyze` / `grill_check` → gaps + draft tags + `cloudPromptSlice` (small)
-4. Member confirm → `remember` into SQLite
-5. `gen` only via allowlisted keys (`genDry`, `registryValidate`, …)
+1. From the target repo, `init` wires agents and installs selected local assets.
+2. `rebuild` fills `.artifactgraph/index.db` transactionally from product files.
+3. `analyze` / `grill_check` / `parity` return local gaps and compact slices.
+4. Member confirmation is stored with `remember`.
+5. `gen` runs only product-defined allowlisted keys.
 
 Cloud should receive **cloudPromptSlice**, not full registries or template trees.
 
@@ -33,19 +31,20 @@ Cloud should receive **cloudPromptSlice**, not full registries or template trees
 
 Copy this package shape:
 
-1. `platform-repos.json` (or shared map) for multi-repo
+1. Current-project context pinned by project-local MCP configuration
 2. `src/mcp/server.ts` + `tools.ts` with zod schemas
-3. Domain modules under `src/<domain>/` with comments
+3. Domain modules under `src/<domain>/`
 4. CLI twin of tools for debugging without Cursor
-5. README: Cursor `mcp.json` snippet + CLI examples
+5. Packaged baseline assets plus safe install/update manifest
 
 ## File responsibilities
 
 | File | Role |
 |------|------|
 | `types.ts` | Gap / AnalyzeResult / config contracts |
-| `config/platform-repos.ts` | Resolve `portal` → `/…/workspace/portal` |
-| `config/load-config.ts` | Read/write product `artifactgraph.json` |
+| `config/platform-repos.ts` | Package root + optional legacy tooling map |
+| `config/load-config.ts` | Validate/read product `artifactgraph.json` |
+| `install/project.ts` | Install/update config, lexicons, and MCP DNA |
 | `db/index-store.ts` | SQLite schema + decisions |
 | `analyze/analyze-spec.ts` | IR tags vs registry → gaps |
 | `analyze/analyze-bullets.ts` | Heuristic draft tags from bullets |

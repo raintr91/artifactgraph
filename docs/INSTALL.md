@@ -1,25 +1,24 @@
 # Package bootstrap (curl / irm)
 
-> **Member workflow (agents + product):** xem **[INIT.md](./INIT.md)** — lệnh chính là `artifactgraph init` / `init-project`.
+> **Member workflow:** xem **[INIT.md](./INIT.md)** — lệnh chính là `artifactgraph init`.
 
 Repo: [raintr91/artifactgraph](https://github.com/raintr91/artifactgraph)
 
-## Ba bước
+## Hai bước
 
 | Bước | Lệnh | Việc |
 |------|------|------|
 | 1 | `curl …/install.sh \| bash` | CLI trên PATH |
-| 2 | **`artifactgraph init`** | Wire Cursor / Claude / Kilo (↑↓ · Space) |
-| 3 | **`artifactgraph init-project`** | `artifactgraph.json` trong từng base |
+| 2 | **`cd <repo> && artifactgraph init`** | Wire agents + config + lexicon + MCP DNA |
 
 ## Linux / WSL
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/raintr91/artifactgraph/main/install.sh | bash
 artifactgraph version
-artifactgraph init                    # interactive agents
-# artifactgraph init --yes
-cd ~/workspace/portal && artifactgraph init-project && artifactgraph rebuild
+cd /path/to/product
+artifactgraph init                    # interactive agents + type
+artifactgraph rebuild
 ```
 
 Uninstall package:
@@ -43,10 +42,10 @@ WSL có sẵn → chạy `install.sh` trong WSL rồi gợi ý `artifactgraph in
 
 ```bash
 cd /path/to/artifactgraph && npm i && npm run build
-node bin/artifactgraph.mjs init --yes
-node bin/artifactgraph.mjs init-project --project portal
+cd /path/to/product
+node /path/to/artifactgraph/bin/artifactgraph.mjs init --target=cursor --type=fe --yes
 ```
 
 ## Alias
 
-`artifactgraph install` → deprecated alias của `init` (agents).
+`artifactgraph install` and `init-project` are deprecated compatibility aliases.

@@ -22,3 +22,14 @@ export { IndexStore } from './db/index-store.js'
 export { resolveConfigPath, resolveSpecPath, pathResolutionSummary } from './config/resolve-paths.js'
 export { suggestTags, loadRegistryTagsLexicon, loadTestTaxonomyLexicon } from './lexicon/load-lexicon.js'
 export { inferSuggestLane, isFeStack, isBeStack } from './lexicon/infer-lane.js'
+export {
+  installProjectAssets,
+  normalizeInstallTypes,
+  parseInstallTypes,
+  projectInstallStatus,
+} from './install/project.js'
+export type {
+  InstallType,
+  ProjectInstallResult,
+  ProjectInstallStatus,
+} from './install/project.js'

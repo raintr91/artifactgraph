@@ -1,6 +1,8 @@
 # artifactgraph
 
-Local MCP for **platform-bases**: analyze specs/bullets vs registries, `needs-*` gaps, grill confirms, allowlisted codegen — cloud only gets a small `cloudPromptSlice`.
+Standalone local MCP for any product repo: analyze specs/bullets vs local
+registries, suggest tags, confirm gaps, and run allowlisted codegen. Cloud only
+gets a small `cloudPromptSlice`.
 
 - GitHub: [raintr91/artifactgraph](https://github.com/raintr91/artifactgraph)
 - **Init (agents + product):** [docs/INIT.md](./docs/INIT.md)
@@ -8,6 +10,7 @@ Local MCP for **platform-bases**: analyze specs/bullets vs registries, `needs-*`
 - Design: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - Local-first: [docs/INTERNALS.md](./docs/INTERNALS.md)
 - Parity: [docs/PARITY.md](./docs/PARITY.md)
+- **Consolidation TODO** (hub decoupling + harness profiles): [CONSOLIDATION-TODO.md](./CONSOLIDATION-TODO.md)
 
 ---
 
@@ -17,9 +20,9 @@ Local MCP for **platform-bases**: analyze specs/bullets vs registries, `needs-*`
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/raintr91/artifactgraph/main/install.sh | bash
-artifactgraph version
-artifactgraph init                    # ↑↓ · Space · Enter — Cursor / Claude / Kilo
-cd ~/workspace/portal && artifactgraph init-project && artifactgraph rebuild
+cd /path/to/product
+artifactgraph init                    # choose agents, then docs/fe/be/test/all
+artifactgraph rebuild
 ```
 
 **Windows**
@@ -53,13 +56,13 @@ git checkout release/2.0.0 && npm run build && artifactgraph version   # → 2.0
 
 | Step | CLI |
 |------|-----|
-| Wire agents (global/local) | `artifactgraph init` |
-| Wire product repo | `artifactgraph init-project` |
+| Wire agents + initialize/update current repo | `artifactgraph init` |
+| Non-interactive init | `artifactgraph init --target=cursor --type=fe --yes` |
 | Index registries | `rebuild` |
 | Preflight | `analyze` / `gaps` / `parity` |
 | Gen allowlist | `gen --command …` |
 
-`install` = deprecated alias của `init`.
+`install` and `init-project` are deprecated compatibility aliases of `init`.
 
 ---
 

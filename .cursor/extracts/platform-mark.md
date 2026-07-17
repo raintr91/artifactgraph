@@ -6,9 +6,9 @@
 
 | Lane | MCP `lane=` | Hub lexicon | Product registries |
 |------|-------------|-------------|-------------------|
-| **FE / UI** | `fe` or `docs` | `@base-docs/.../registry-tags.en.txt` (R2.1) | `design.registry.json`, `common.registry.json` |
+| **FE / UI** | `fe` or `docs` | `artifactgraph/lexicon/registry-tags.en.txt` | `design.registry.json`, `common.registry.json` |
 | **BE / API** | `be` | Same R2.1 (`#api:`, `#needs-endpoint`, `#needs-dto`) | `codegen.registry.json` (+ `common` on some stacks) |
-| **Test / plans** | `plans` | `@base-tests/.../testcase-taxonomy.en.txt` (R3.1) | `e2e-test.registry.json`, `unit-test.registry.json` |
+| **Test / plans** | `plans` | `artifactgraph/lexicon/testcase-taxonomy.en.txt` | `e2e-test.registry.json`, `unit-test.registry.json` |
 
 Lexicons = **suggest/index only** — never gen SSOT. Promote marks in product git after grill confirm.
 

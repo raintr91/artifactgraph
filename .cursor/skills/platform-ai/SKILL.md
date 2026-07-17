@@ -45,9 +45,9 @@ Feature / spec / plans → workspace lane đúng (`--group=docs`, `code-fe`, …
 
 | Lane | MCP `suggest_tags` | Hub lexicon |
 |------|-------------------|-------------|
-| FE / UI | `fe`, `docs` | R2.1 `registry-tags.en.txt` (@base-docs) |
+| FE / UI | `fe`, `docs` | product-local `artifactgraph/lexicon/registry-tags.en.txt` |
 | BE / API | `be` | R2.1 (`#api:`, `#needs-endpoint`, `#needs-dto`) |
-| Test / plans | `plans` | R3.1 `testcase-taxonomy.en.txt` (@base-tests) |
+| Test / plans | `plans` | product-local `artifactgraph/lexicon/testcase-taxonomy.en.txt` |
 
 Registries SSOT trên product repo · `analyzeBullets` auto lane từ stack · chi tiết `/platform-mark`.
 

@@ -1,7 +1,7 @@
 {
   "name": "@platform/artifactgraph",
   "version": "2.0.0",
-  "description": "Local MCP: analyze marks/registry/gaps + allowlisted codegen for platform-bases",
+  "description": "Standalone local MCP for artifact registries, gaps, tag suggestions, and allowlisted codegen",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
@@ -20,7 +20,10 @@
     "bin",
     "dist",
     "stacks",
+    "lexicon",
+    "harness",
     "platform-repos.json",
+    "platform-repos.example.json",
     "docs",
     "examples",
     "install.sh",
@@ -29,6 +32,8 @@
   ],
   "scripts": {
     "build": "tsc",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "harness:export": "node scripts/export-cursor-harness.mjs",
     "prepare": "npm run build",
     "mcp": "node bin/artifactgraph-mcp.mjs",
     "cli": "node bin/artifactgraph.mjs",

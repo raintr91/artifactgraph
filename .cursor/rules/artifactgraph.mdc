@@ -1,27 +1,15 @@
 ---
-description: ArtifactGraph MCP — DSL index + allowlisted gen; registries SSOT in product repo; opt-in skill use
+description: ArtifactGraph local-first MCP protocol
 alwaysApply: false
 ---
-# artifactgraph
 
-MCP package: repo này · `/artifactgraph` · `docs/INTERNALS.md` · `docs/INIT.md`
+# ArtifactGraph
 
-**SSOT:** product `registries/*.json` + templates — MCP **indexes** + `artifactgraph_gen` only. Promote after review stays in product repo.
-
-**Token:** project `.cursor/mcp.json` (not Windows global). CLI: `parity|gaps|status|gen|suggest`.
-
-## Prefer local MCP
-
-On product-repo artifact work (`/platform-mark`, `/prototype`, `/spec`, … — **mở đúng lane workspace**):
-
-1. **`analyze` / `grill_check` / `gaps` / `parity_check`** before dumping registries.
-2. **Grill + parity-drift** = local A/B/C. **context-orphan** = warn only.
-3. **Gen** via `artifactgraph_gen` keys from product `artifactgraph.json` / `dsl.lanes`.
-4. Cloud only **`cloudPromptSlice`** — never full registries; never write registry from cloud.
-5. After review OK → **promote in product repo** → `rebuild` + `remember`.
-
-### If MCP / index missing
-
-Ask: *"Chưa wire. `artifactgraph init` rồi `init-project` + `rebuild`?"*
+- Product registries, templates, lexicons, and config are repository-local SSOT.
+- Use local analyze/grill/parity/suggest before requesting cloud work.
+- Never dump full registries or lexicons into `cloudPromptSlice`.
+- Run only generation keys allowlisted by the current repo.
+- Promote reviewed artifacts in the product repo, then rebuild the local index.
+- Do not depend on `platform-repos.json`, `base-docs`, or `base-tests`.
 
 Hooks: `.cursor/extracts/artifactgraph-phase-hooks.md`
