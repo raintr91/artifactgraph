@@ -18,7 +18,10 @@ import { analyzeSpecFile } from '../analyze/analyze-spec.js'
 import { analyzeBullets } from '../analyze/analyze-bullets.js'
 import { grillCheck, recordGrillDecision } from '../analyze/grill-check.js'
 import { parityCheck, recordParityDecision } from '../analyze/parity-check.js'
-import { runAllowlistedCommand } from '../gen/run-command.js'
+import {
+  inspectAllowlistedCommand,
+  runAllowlistedCommand,
+} from '../gen/run-command.js'
 import { detectStack } from '../config/platform-repos.js'
 import {
   pathResolutionSummary,
@@ -233,10 +236,54 @@ export function registerTools(server: McpServer): void {
     },
   )
 
-  /** Run allowlisted gen/registry command only. */
+  /** Recommend/materialize an allowlisted command without executing it. */
+  server.tool(
+    'artifactgraph_recommend_command',
+    'Inspect and materialize a product-owned allowlisted command without executing it. Use the owning kit (Bundlekit/Codegenkit/Testkit) to run.',
+    {
+      commandKey: z.string().describe('Key in artifactgraph.json commands'),
+      spec: z.string().optional().describe('Substituted for {spec}'),
+    },
+    async ({ commandKey, spec }) => {
+      const project = currentProject()
+      const cfg = loadEffectiveRepoConfig(project.root)
+      return text(
+        inspectAllowlistedCommand(project.root, cfg, commandKey, {
+          spec: spec ?? '',
+        }),
+      )
+    },
+  )
+
+  /** Token-light allowlist membership check; never executes. */
+  server.tool(
+    'artifactgraph_allowlist_check',
+    'Check whether a command key is product-allowlisted and report its executable owner; never executes the command.',
+    {
+      commandKey: z.string(),
+    },
+    async ({ commandKey }) => {
+      const project = currentProject()
+      const cfg = loadEffectiveRepoConfig(project.root)
+      const inspected = inspectAllowlistedCommand(project.root, cfg, commandKey)
+      return text({
+        ok: inspected.ok,
+        commandKey,
+        allowlisted: inspected.allowlisted,
+        knownKeys: inspected.knownKeys,
+        executableOwner: inspected.executableOwner,
+        recommendation: inspected.recommendation,
+      })
+    },
+  )
+
+  /**
+   * Compatibility shim (2.x): executable command runner.
+   * Deprecated; remove in the next major after kits own execution.
+   */
   server.tool(
     'artifactgraph_gen',
-    'Run allowlisted DSL gen from artifactgraph.json (docsRender, specSplit, gen, unitGen, testcaseGen, …). Registry promote stays in product repo.',
+    'DEPRECATED compatibility shim: executes an allowlisted product command. Prefer artifactgraph_recommend_command/allowlist_check, then run via Bundlekit/Codegenkit/Testkit.',
     {
       commandKey: z.string().describe('Key in artifactgraph.json commands'),
       spec: z.string().optional().describe('Substituted for {spec} (bundle path, ir/spec, or testcase path)'),
@@ -247,7 +294,15 @@ export function registerTools(server: McpServer): void {
       const result = runAllowlistedCommand(project.root, cfg, commandKey, {
         spec: spec ?? '',
       })
-      return text(result)
+      return text({
+        ...result,
+        deprecated: true,
+        replacement: [
+          'artifactgraph_recommend_command',
+          'artifactgraph_allowlist_check',
+          'owning kit executable',
+        ],
+      })
     },
   )
 

@@ -26,10 +26,14 @@ export {
   installProjectAssets,
   normalizeInstallTypes,
   parseInstallTypes,
+  pruneProjectAssets,
   projectInstallStatus,
 } from './install/project.js'
 export type {
+  InstallManifest,
   InstallType,
+  ManagedFile,
   ProjectInstallResult,
   ProjectInstallStatus,
+  ProjectPruneResult,
 } from './install/project.js'

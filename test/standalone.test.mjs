@@ -1,6 +1,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -8,6 +17,8 @@ import { fileURLToPath } from 'node:url'
 import {
   installProjectAssets,
   normalizeInstallTypes,
+  projectInstallStatus,
+  pruneProjectAssets,
 } from '../dist/install/project.js'
 import { installAgents } from '../dist/install/agents.js'
 import {
@@ -24,6 +35,7 @@ import { buildMcpEntry } from '../dist/install/agents.js'
 import { IndexStore } from '../dist/db/index-store.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { inspectAllowlistedCommand } from '../dist/gen/run-command.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -105,6 +117,147 @@ test('init never copies product-owned commands from stack presets', () => {
   const cfg = JSON.parse(readFileSync(path.join(repo, 'artifactgraph.json'), 'utf8'))
   assert.deepEqual(cfg.commands, {})
   assert.equal(result.created.includes('artifactgraph.json'), true)
+})
+
+test('init marks removed type assets stale and prune is dry-run by default', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-prune-'))
+  installProjectAssets({ repoRoot: repo, stack: 'generic', types: ['fe'] })
+  const staleRel = '.cursor/extracts/artifactgraph-hooks-fe.md'
+  const staleFile = path.join(repo, staleRel)
+  installProjectAssets({ repoRoot: repo, stack: 'generic', types: ['common'] })
+
+  const status = projectInstallStatus(repo)
+  assert.deepEqual(status.stale.healthy, [staleRel])
+  assert.equal(status.healthy.includes(staleRel), false)
+
+  const dryRun = pruneProjectAssets({ repoRoot: repo })
+  assert.equal(dryRun.dryRun, true)
+  assert.deepEqual(dryRun.wouldDelete, [staleRel])
+  assert.equal(existsSync(staleFile), true)
+
+  const config = path.join(repo, 'artifactgraph.json')
+  const index = path.join(repo, '.artifactgraph/index.db')
+  const platformMap = path.join(repo, 'platform-repos.json')
+  const registry = path.join(repo, 'registries/local.json')
+  mkdirSync(path.dirname(registry), { recursive: true })
+  for (const file of [index, platformMap, registry]) writeFileSync(file, 'product-owned\n')
+  const manifestPath = path.join(repo, '.artifactgraph/install-manifest.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  for (const destRel of [
+    'artifactgraph.json',
+    '.artifactgraph/index.db',
+    'platform-repos.json',
+    'registries/local.json',
+  ]) {
+    manifest.files[destRel] = {
+      source: 'harness/common/rules/artifactgraph.mdc',
+      hash: 'a'.repeat(64),
+      stale: true,
+    }
+  }
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+
+  const pruned = pruneProjectAssets({ repoRoot: repo, yes: true })
+  assert.deepEqual(pruned.deleted, [staleRel])
+  assert.deepEqual(pruned.preservedUnsafe.sort(), [
+    '.artifactgraph/index.db',
+    'artifactgraph.json',
+    'platform-repos.json',
+    'registries/local.json',
+  ])
+  assert.equal(existsSync(staleFile), false)
+  for (const file of [config, index, platformMap, registry]) {
+    assert.equal(existsSync(file), true)
+  }
+  assert.deepEqual(projectInstallStatus(repo).stale.healthy, [])
+})
+
+test('prune preserves modified and symlinked stale assets', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-prune-safe-'))
+  installProjectAssets({ repoRoot: repo, stack: 'generic', types: ['fe', 'be'] })
+  installProjectAssets({ repoRoot: repo, stack: 'generic', types: ['common'] })
+  const modifiedRel = '.cursor/extracts/artifactgraph-hooks-fe.md'
+  const modified = path.join(repo, modifiedRel)
+  writeFileSync(modified, `${readFileSync(modified, 'utf8')}custom\n`)
+
+  const symlinkRel = '.cursor/extracts/artifactgraph-hooks-be.md'
+  const symlink = path.join(repo, symlinkRel)
+  const outside = path.join(os.tmpdir(), `artifactgraph-outside-${process.pid}.md`)
+  writeFileSync(outside, readFileSync(symlink, 'utf8'))
+  unlinkSync(symlink)
+  symlinkSync(outside, symlink)
+
+  const result = pruneProjectAssets({ repoRoot: repo, yes: true })
+  assert.deepEqual(result.preservedModified, [modifiedRel])
+  assert.deepEqual(result.preservedUnsafe, [symlinkRel])
+  assert.equal(existsSync(modified), true)
+  assert.equal(existsSync(symlink), true)
+  assert.equal(existsSync(outside), true)
+  unlinkSync(outside)
+})
+
+test('prune CLI honors project root and requires --yes to delete', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-prune-cli-'))
+  installProjectAssets({ repoRoot: repo, stack: 'generic', types: ['fe'] })
+  installProjectAssets({ repoRoot: repo, stack: 'generic', types: ['common'] })
+  const staleFile = path.join(repo, '.cursor/extracts/artifactgraph-hooks-fe.md')
+  const cli = path.join(root, 'bin/artifactgraph.mjs')
+
+  const dryRun = spawnSync(process.execPath, [cli, 'prune', '--project-root', repo], {
+    encoding: 'utf8',
+  })
+  assert.equal(dryRun.status, 0, dryRun.stderr)
+  assert.equal(JSON.parse(dryRun.stdout).dryRun, true)
+  assert.equal(existsSync(staleFile), true)
+
+  const missingRoot = spawnSync(
+    process.execPath,
+    [cli, 'prune', '--project-root', '--yes'],
+    { cwd: repo, encoding: 'utf8' },
+  )
+  assert.equal(missingRoot.status, 1)
+  assert.match(missingRoot.stderr, /--project-root requires a path/)
+  assert.equal(existsSync(staleFile), true)
+
+  const confirmed = spawnSync(
+    process.execPath,
+    [cli, 'prune', '--project-root', repo, '--yes'],
+    { encoding: 'utf8' },
+  )
+  assert.equal(confirmed.status, 0, confirmed.stderr)
+  assert.deepEqual(JSON.parse(confirmed.stdout).deleted, [
+    '.cursor/extracts/artifactgraph-hooks-fe.md',
+  ])
+  assert.equal(existsSync(staleFile), false)
+})
+
+test('recommend-command inspects allowlist without executing', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-recommend-'))
+  const marker = path.join(repo, 'must-not-exist.txt')
+  const cfg = {
+    ...defaultRepoConfig('fixture'),
+    commands: {
+      genDry: [process.execPath, '-e', `require('fs').writeFileSync(${JSON.stringify(marker)}, 'x')`],
+    },
+  }
+  const result = inspectAllowlistedCommand(repo, cfg, 'genDry', { spec: '' })
+  assert.equal(result.ok, true)
+  assert.equal(result.allowlisted, true)
+  assert.equal(result.executableOwner, 'codegenkit')
+  assert.equal(existsSync(marker), false)
+})
+
+test('allowlist check reports unknown key without executing', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-allowlist-'))
+  const cfg = {
+    ...defaultRepoConfig('fixture'),
+    commands: { docsRender: ['bundlekit', 'render'] },
+  }
+  const result = inspectAllowlistedCommand(repo, cfg, 'registryValidate')
+  assert.equal(result.ok, false)
+  assert.equal(result.allowlisted, false)
+  assert.deepEqual(result.knownKeys, ['docsRender'])
+  assert.equal(result.executableOwner, 'codegenkit')
 })
 
 test('claude local init writes .mcp.json (project scope)', async () => {

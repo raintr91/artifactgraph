@@ -71,9 +71,11 @@ git checkout release/2.0.0 && npm run build && artifactgraph version   # → 2.0
 |------|-----|
 | Wire agents + initialize/update current repo | `artifactgraph init` |
 | Non-interactive init | `artifactgraph init --target=cursor --type=fe --yes` |
+| Remove unchanged stale harness assets | `prune` (dry-run) / `prune --yes` |
 | Index registries | `rebuild` |
 | Preflight | `analyze` / `gaps` / `parity` |
-| Gen allowlist | `gen --command …` |
+| Command recommendation | `recommend-command --command …` / `allowlist-check --command …` |
+| Deprecated executable shim | `gen --command …` (2.x compatibility only; owning kit executes in next major) |
 
 `install` and `init-project` are deprecated compatibility aliases of `init`.
 

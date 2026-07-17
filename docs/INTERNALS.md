@@ -48,14 +48,20 @@ the testcase taxonomy; every type installs registry tags.
 ## Managed-file updates
 
 `.artifactgraph/install-manifest.json` stores package version, selected types,
-source paths, and content hashes. On update:
+source paths, content hashes, and an optional stale marker. On update:
 
 - missing → create;
 - same as package → skip;
 - same as prior managed hash → update;
 - customized → conflict unless `--force`.
+- no longer selected → retain its prior hash and mark stale.
 
-Init does not delete phase skills or unrelated product rules.
+Init does not delete phase skills or unrelated product rules. `prune` is a
+dry-run unless `--yes` is supplied. It only deletes stale regular files whose
+content still matches the managed hash and whose source/destination mapping is
+compatible with packaged harness or lexicon locations. Modified, unmanaged,
+symlinked, incompatible, and out-of-root paths are preserved. Product
+registries/config, the local index, and platform maps are outside prune scope.
 
 ## Local-first loop
 

@@ -64,6 +64,21 @@ Hashes and selected types are stored in
 `.artifactgraph/install-manifest.json`. Existing product phase skills and
 unrelated rules are never removed by init.
 
+When a later init no longer selects a previously managed asset, its manifest
+entry is retained and marked stale. Review and remove only unchanged stale
+assets with:
+
+```bash
+artifactgraph prune                         # dry-run
+artifactgraph prune --project-root <repo>   # dry-run for an explicit repo
+artifactgraph prune --project-root <repo> --yes
+```
+
+Prune requires `--yes` before deleting. It preserves modified files, unmanaged
+files, symlinks, and incompatible or out-of-root manifest paths. It never
+removes product registries, `artifactgraph.json`, the local index, or platform
+maps.
+
 ## Compatibility aliases
 
 `artifactgraph init-project` and `artifactgraph install` remain temporary

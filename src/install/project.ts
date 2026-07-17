@@ -1,8 +1,11 @@
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -21,12 +24,13 @@ type LaneType = Exclude<InstallType, 'common' | 'all'>
 
 const LANE_TYPES: LaneType[] = ['docs', 'fe', 'be', 'test']
 
-interface ManagedFile {
+export interface ManagedFile {
   source: string
   hash: string
+  stale?: boolean
 }
 
-interface InstallManifest {
+export interface InstallManifest {
   version: 1
   packageVersion: string
   types: InstallType[]
@@ -52,6 +56,22 @@ export interface ProjectInstallStatus {
   healthy: string[]
   missing: string[]
   modified: string[]
+  stale: {
+    healthy: string[]
+    missing: string[]
+    modified: string[]
+  }
+}
+
+export interface ProjectPruneResult {
+  root: string
+  manifestPath: string
+  dryRun: boolean
+  wouldDelete: string[]
+  deleted: string[]
+  missing: string[]
+  preservedModified: string[]
+  preservedUnsafe: string[]
 }
 
 const COMMON_ASSETS: Array<[string, string]> = [
@@ -164,18 +184,137 @@ export function projectInstallStatus(repoRoot: string): ProjectInstallStatus {
     healthy: [],
     missing: [],
     modified: [],
+    stale: {
+      healthy: [],
+      missing: [],
+      modified: [],
+    },
   }
   for (const [destRel, managed] of Object.entries(manifest?.files ?? {})) {
+    if (!isManagedFile(managed)) continue
     const dest = path.join(root, destRel)
+    const bucket = managed.stale ? status.stale : status
     if (!existsSync(dest)) {
-      status.missing.push(destRel)
+      bucket.missing.push(destRel)
     } else if (sha256(readFileSync(dest, 'utf8')) === managed.hash) {
-      status.healthy.push(destRel)
+      bucket.healthy.push(destRel)
     } else {
-      status.modified.push(destRel)
+      bucket.modified.push(destRel)
     }
   }
   return status
+}
+
+function isManagedFile(value: unknown): value is ManagedFile {
+  if (!value || typeof value !== 'object') return false
+  const file = value as Partial<ManagedFile>
+  return (
+    typeof file.source === 'string' &&
+    typeof file.hash === 'string' &&
+    /^[a-f0-9]{64}$/.test(file.hash)
+  )
+}
+
+function compatibleManagedPath(source: string, destRel: string): boolean {
+  const harness = /^harness\/(?:common|docs|fe|be|test)\/(skills|rules|extracts)\/(.+)$/.exec(
+    source,
+  )
+  if (harness) return destRel === `.cursor/${harness[1]}/${harness[2]}`
+  const lexicon = /^lexicon\/([^/]+)$/.exec(source)
+  return Boolean(lexicon && destRel === `artifactgraph/lexicon/${lexicon[1]}`)
+}
+
+function containedRelativePath(root: string, destRel: string): string | null {
+  const parts = destRel.split(/[\\/]/)
+  if (
+    !destRel ||
+    path.isAbsolute(destRel) ||
+    parts.some((part) => !part || part === '.' || part === '..')
+  ) {
+    return null
+  }
+  const dest = path.resolve(root, destRel)
+  const relative = path.relative(root, dest)
+  if (
+    !relative ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    return null
+  }
+  return dest
+}
+
+function safeExistingManagedPath(root: string, destRel: string): string | null {
+  const dest = containedRelativePath(root, destRel)
+  if (!dest) return null
+  const stat = lstatSync(dest)
+  if (stat.isSymbolicLink() || !stat.isFile()) return null
+  const realRoot = realpathSync(root)
+  const realParent = realpathSync(path.dirname(dest))
+  const relative = path.relative(realRoot, realParent)
+  if (relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null
+  return dest
+}
+
+export function pruneProjectAssets(opts: {
+  repoRoot: string
+  yes?: boolean
+}): ProjectPruneResult {
+  const root = path.resolve(opts.repoRoot)
+  const manifestPath = path.join(root, '.artifactgraph', 'install-manifest.json')
+  const manifest = readManifest(manifestPath)
+  const result: ProjectPruneResult = {
+    root,
+    manifestPath,
+    dryRun: !opts.yes,
+    wouldDelete: [],
+    deleted: [],
+    missing: [],
+    preservedModified: [],
+    preservedUnsafe: [],
+  }
+  if (!manifest) return result
+
+  const removeFromManifest = new Set<string>()
+  for (const [destRel, managed] of Object.entries(manifest.files)) {
+    if (!isManagedFile(managed) || !managed.stale) continue
+    if (!compatibleManagedPath(managed.source, destRel)) {
+      result.preservedUnsafe.push(destRel)
+      continue
+    }
+    const dest = containedRelativePath(root, destRel)
+    if (!dest) {
+      result.preservedUnsafe.push(destRel)
+      continue
+    }
+    if (!existsSync(dest)) {
+      result.missing.push(destRel)
+      if (opts.yes) removeFromManifest.add(destRel)
+      continue
+    }
+    const safeDest = safeExistingManagedPath(root, destRel)
+    if (!safeDest) {
+      result.preservedUnsafe.push(destRel)
+      continue
+    }
+    if (sha256(readFileSync(safeDest, 'utf8')) !== managed.hash) {
+      result.preservedModified.push(destRel)
+      continue
+    }
+    result.wouldDelete.push(destRel)
+    if (opts.yes) {
+      unlinkSync(safeDest)
+      result.deleted.push(destRel)
+      removeFromManifest.add(destRel)
+    }
+  }
+
+  if (opts.yes && removeFromManifest.size) {
+    for (const destRel of removeFromManifest) delete manifest.files[destRel]
+    writeAtomic(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  }
+  return result
 }
 
 function isExplicitNonHubPath(value: string | undefined): value is string {
@@ -324,9 +463,17 @@ export function installProjectAssets(opts: {
       result.updated.push(destRel)
     } else {
       result.conflicts.push(destRel)
+      const prior = previous?.files[destRel]
+      if (isManagedFile(prior)) nextFiles[destRel] = { ...prior, stale: undefined }
       continue
     }
     nextFiles[destRel] = { source: sourceRel, hash: nextHash }
+  }
+
+  for (const [destRel, managed] of Object.entries(previous?.files ?? {})) {
+    if (!(destRel in nextFiles) && isManagedFile(managed)) {
+      nextFiles[destRel] = { ...managed, stale: true }
+    }
   }
 
   const config = sanitizeConfig(root, opts.stack, types)

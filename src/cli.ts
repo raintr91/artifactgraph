@@ -17,7 +17,10 @@ import { loadRegistries, indexRegistries, registryIndexSummary } from './registr
 import { analyzeSpecFile } from './analyze/analyze-spec.js'
 import { analyzeBullets } from './analyze/analyze-bullets.js'
 import { parityCheck } from './analyze/parity-check.js'
-import { runAllowlistedCommand } from './gen/run-command.js'
+import {
+  inspectAllowlistedCommand,
+  runAllowlistedCommand,
+} from './gen/run-command.js'
 import { resolveSpecPath, pathResolutionSummary } from './config/resolve-paths.js'
 import { indexLexicons, suggestTags } from './lexicon/load-lexicon.js'
 import { installAgents, AGENT_IDS } from './install/agents.js'
@@ -26,6 +29,7 @@ import {
   installProjectAssets,
   normalizeInstallTypes,
   parseInstallTypes,
+  pruneProjectAssets,
   projectInstallStatus,
   type InstallType,
 } from './install/project.js'
@@ -55,12 +59,15 @@ Initialize current repo + wire agents:
 Current product repo:
   init-project [--stack <id>] [--type <types>] [--force]   # deprecated alias
   status
+  prune [--project-root <path>] [--yes]   # dry-run unless --yes
   rebuild
   analyze      (--spec <path> | --bullets <text>)
   gaps         (--spec <path> | --bullets <text>)
   suggest      --lane fe|docs|plans [--bullets <text>]
   parity       (--module <dir> | --findings <path>)
-  gen          --command <key> [--spec <path>]
+  recommend-command --command <key> [--spec <path>]
+  allowlist-check   --command <key>
+  gen               --command <key> [--spec <path>] # deprecated executable shim
 
 Docs: docs/INIT.md · docs/INSTALL.md
 
@@ -196,6 +203,21 @@ async function main(): Promise<void> {
     return
   }
 
+  if (cmd === 'prune') {
+    const projectRoot = arg('--project-root')
+    if (has('--project-root') && (!projectRoot || projectRoot.startsWith('-'))) {
+      console.error('--project-root requires a path')
+      process.exitCode = 1
+      return
+    }
+    const result = pruneProjectAssets({
+      repoRoot: projectRoot ?? process.cwd(),
+      yes: has('--yes'),
+    })
+    console.log(JSON.stringify(result, null, 2))
+    return
+  }
+
   const ctx = resolveRepoContext()
 
   if (cmd === 'status') {
@@ -302,7 +324,42 @@ async function main(): Promise<void> {
     return
   }
 
+  if (cmd === 'recommend-command' || cmd === 'allowlist-check') {
+    const cfg = requireRepoConfig(ctx.root)
+    const commandKey = arg('--command')
+    if (!commandKey) {
+      console.error('Missing --command')
+      usage()
+      return
+    }
+    const result = inspectAllowlistedCommand(ctx.root, cfg, commandKey, {
+      spec: arg('--spec') ?? '',
+    })
+    if (cmd === 'allowlist-check') {
+      console.log(
+        JSON.stringify(
+          {
+            ok: result.ok,
+            commandKey,
+            allowlisted: result.allowlisted,
+            knownKeys: result.knownKeys,
+            executableOwner: result.executableOwner,
+            recommendation: result.recommendation,
+          },
+          null,
+          2,
+        ),
+      )
+    } else {
+      console.log(JSON.stringify(result, null, 2))
+    }
+    process.exit(result.allowlisted ? 0 : 1)
+  }
+
   if (cmd === 'gen') {
+    console.error(
+      'deprecated: `artifactgraph gen` executes product commands; use `recommend-command` / `allowlist-check`, then the owning kit',
+    )
     const cfg = requireRepoConfig(ctx.root)
     const commandKey = arg('--command')
     if (!commandKey) {
