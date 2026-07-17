@@ -41,7 +41,7 @@ Requires **Node ≥ 22** (`node:sqlite`).
   `platform-repos.json`, `base-docs`, or `base-tests`.
 - Config, lexicons, registries, generated harness files, and the SQLite index
   are project-local.
-- The packaged project map is optional migration/tooling inventory only.
+- MCP package repositories do not ship or own workspace project maps.
 
 The package installer does not initialize an arbitrary repository. Run
 `artifactgraph init` separately from each repo where ArtifactGraph is wanted.

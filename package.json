@@ -22,8 +22,6 @@
     "stacks",
     "lexicon",
     "harness",
-    "platform-repos.json",
-    "platform-repos.example.json",
     "docs",
     "examples",
     "install.sh",

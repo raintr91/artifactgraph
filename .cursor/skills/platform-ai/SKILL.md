@@ -1,68 +1,47 @@
 ---
 name: platform-ai
 extractBundle: platform-ai
-description: /platform-ai — maintain MCP package + harness map (artifactgraph tooling lane).
+description: /platform-ai — build and maintain the independent ArtifactGraph MCP package.
 disable-model-invocation: true
 ---
 
-# /platform-ai — MCP tooling harness
+# /platform-ai — build ArtifactGraph MCP
 
-Chỉ khi **sửa** package MCP, `platform-repos.json`, sync scripts, hoặc `.cursor/` **trong repo này** — không implement feature app / spec / E2E plans.
+Use this skill to design, implement, test, package, and release
+**ArtifactGraph as an independent MCP**. Do not implement product features,
+specs, or E2E plans here.
 
-## Phạm vi repo này
+## Scope
 
-| Giữ tại **artifactgraph** | Không làm chính tại đây |
-|---------------------------|-------------------------|
-| `src/`, `bin/`, `docs/`, `install.*` | `/prototype` `/wire` `/test` (portal) |
-| `platform-repos.json` + `harness` + lane groups | `/spec` grill `/dynamics` (`base-docs`) |
-| `scripts/sync-platform-repos-bases.py` (map only) | `/testcase` (`base-tests`) |
-| `scripts/platform-workspace-from-repos.mjs` | `platform-base` (Nuxt — chỉ portal) |
-| Skills: `platform-ai`, `platform-mark`, `artifactgraph` | Bulk copy `.cursor/` từ portal |
+| Own here | Do not own here |
+|----------|-----------------|
+| MCP server/tools, CLI, index and package API | Product application implementation |
+| ArtifactGraph installers and managed harness | Product registries or project topology |
+| ArtifactGraph/platform-mark skills and assets | Platform DNA or another MCP's harness |
+| Standalone tests, packaging, release docs | Commands executed by an owning generator kit |
 
-**SSOT:** map = `platform-repos.json` · harness `.cursor/` = chỉnh **tại repo này**.
+There is no `platform-repos.json` in an MCP repository. Runtime binds directly
+to the product root where `artifactgraph init` runs.
 
-**Skill sync check:** đọc `harness.profiles.<profile>.skills` + `syncPolicy.mode=propose` — so `.cursor/skills` vs allowlist theo project (không sync all lanes). Groups: `code-fe` / `code-be` / `code-fullstack` / `docs` / `tests` / `mcp`.
+## Workflow
 
-## Scripts
-
-```bash
-python3 scripts/sync-platform-repos-bases.py          # propagate map → sibling bases
-node scripts/platform-workspace-from-repos.mjs --group=mcp   # local workspace (gitignored)
-./scripts/cursor-export-kilo                        # optional Kilo mirror
-```
+1. Freeze tool schemas, ownership, and compatibility in `mcp-package.json`.
+2. Keep deterministic graph/index logic in `src/`; keep orchestration in
+   packaged `harness/`.
+3. Bind all runtime operations to an explicit/current product root.
+4. Keep `init` managed, conflict-safe, and free of sibling assumptions.
+5. Update standalone tests, docs, and package-content checks with behavior.
 
 ## Commands
 
-| Command | Khi nào |
-|---------|---------|
-| `/platform-ai` | this — MCP package + harness |
-| `/artifactgraph` | MCP tools, CLI, index, gen allowlist |
-| `/platform-mark` | Tags/lexicon — lanes `fe` · `be` · `plans` (hub R2.1 / R3.1) |
-
-Feature / spec / plans → workspace lane đúng (`--group=docs`, `code-fe`, …) — **một chat một lane**.
-
-## Tag / vocabulary (3 lane nghiệp vụ)
-
-| Lane | MCP `suggest_tags` | Hub lexicon |
-|------|-------------------|-------------|
-| FE / UI | `fe`, `docs` | product-local `artifactgraph/lexicon/registry-tags.en.txt` |
-| BE / API | `be` | R2.1 (`#api:`, `#needs-endpoint`, `#needs-dto`) |
-| Test / plans | `plans` | product-local `artifactgraph/lexicon/testcase-taxonomy.en.txt` |
-
-Registries SSOT trên product repo · `analyzeBullets` auto lane từ stack · chi tiết `/platform-mark`.
-
-## MCP harness conventions (tham khảo)
-
-Repo **artifactgraph** chỉ sở hữu package và harness `.cursor/` của chính nó. Mỗi MCP
-khác tự sở hữu packaged harness và quy trình cài đặt riêng; không dùng ArtifactGraph
-làm base, SSOT hoặc nguồn copy harness.
-
-Các MCP có thể tham khảo convention lane **tooling** và governance trong
-`platform-repos.json` · group `mcp`, nhưng không copy skill, rule, hook, extract,
-registry bundle hoặc platform-mark DNA từ ArtifactGraph.
+```bash
+pnpm test
+pnpm pack --dry-run
+```
 
 ## Done
 
-- [x] Chỉ 3 skill folders; rules = `platform-ai`, `artifactgraph`, `platform-code-size`, `team-flow-harness-state`
-- [x] `platform-repos.json` harness khớp lane groups + `profiles.*.skills` + `syncPolicy`
-- [x] Không copy `.cursor/` từ portal vào artifactgraph
+- Package installs and runs without sibling repositories.
+- Product tools require no `projectId` or packaged workspace map.
+- Shipped assets belong to ArtifactGraph and are conflict-safe.
+- Docs, version, manifest compatibility, and tests agree.

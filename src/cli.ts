@@ -10,7 +10,7 @@
 
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import { resolveProject, loadPlatformReposMap, detectStack, packageRoot } from './config/platform-repos.js'
+import { detectStack, packageRoot } from './config/platform-repos.js'
 import { requireRepoConfig, loadRepoConfig } from './config/load-config.js'
 import { IndexStore } from './db/index-store.js'
 import { loadRegistries, indexRegistries, registryIndexSummary } from './registry/load-registries.js'
@@ -53,20 +53,17 @@ Initialize current repo + wire agents:
   install …   # deprecated alias → init
 
 Current product repo:
-  projects
   init-project [--stack <id>] [--type <types>] [--force]   # deprecated alias
-  status       [--project <id>]
-  rebuild      [--project <id>]
-  analyze      [--project <id>] (--spec <path> | --bullets <text>)
-  gaps         [--project <id>] (--spec <path> | --bullets <text>)
-  suggest      [--project <id>] --lane fe|docs|plans [--bullets <text>]
-  parity       [--project <id>] (--module <dir> | --findings <path>)
-  gen          [--project <id>] --command <key> [--spec <path>]
+  status
+  rebuild
+  analyze      (--spec <path> | --bullets <text>)
+  gaps         (--spec <path> | --bullets <text>)
+  suggest      --lane fe|docs|plans [--bullets <text>]
+  parity       (--module <dir> | --findings <path>)
+  gen          --command <key> [--spec <path>]
 
 Docs: docs/INIT.md · docs/INSTALL.md
 
-Env:
-  ARTIFACTGRAPH_WORKSPACE   folder that contains portal/, nextjs/, …
 `)
   process.exit(1)
 }
@@ -82,13 +79,8 @@ function has(flag: string): boolean {
   return process.argv.includes(flag)
 }
 
-/** Resolve product root: --project map OR cwd. */
+/** Resolve the current product root directly; MCP repos do not own workspace maps. */
 function resolveRepoContext(): { id: string; root: string; stack: string } {
-  const projectId = arg('--project')
-  if (projectId) {
-    const p = resolveProject(projectId)
-    return { id: p.id, root: p.root, stack: p.stack }
-  }
   const root = process.cwd()
   const stack = arg('--stack') ?? detectStack(root)
   return { id: path.basename(root), root, stack }
@@ -196,12 +188,6 @@ async function main(): Promise<void> {
 
   if (cmd === 'install') {
     await runInitAgents({ deprecatedAlias: true })
-    return
-  }
-
-  if (cmd === 'projects') {
-    const map = loadPlatformReposMap()
-    console.log(JSON.stringify({ workspaceRoot: map.workspaceRoot, projects: map.projects }, null, 2))
     return
   }
 

@@ -1,10 +1,13 @@
 /**
- * Resolve paths to platform-repos.json and product repos.
+ * Legacy explicit-map helpers plus package-root and stack detection.
  *
- * Workspace resolution order:
+ * MCP repositories no longer ship platform-repos.json. Legacy callers must
+ * provide a map path explicitly. Normal runtime binds directly to cwd.
+ *
+ * Explicit-map workspace resolution order:
  * 1. ARTIFACTGRAPH_WORKSPACE env
  * 2. ~/.artifactgraph/workspace.path (written by install.sh when ~/workspace exists)
- * 3. platform-repos.json workspaceRoot relative to package root
+ * 3. map workspaceRoot relative to package root
  *
  * Project `root` fields are relative to that workspace (e.g. "portal"), not the package.
  */
@@ -48,10 +51,15 @@ export function resolveWorkspaceRoot(mapWorkspaceRoot: string): string {
 }
 
 /**
- * Load platform-repos.json shipped with this MCP.
+ * Load an explicitly supplied legacy platform-repos map.
  */
 export function loadPlatformReposMap(mapPath?: string): PlatformReposMap {
-  const file = mapPath ?? path.join(packageRoot(), 'platform-repos.json')
+  if (!mapPath) {
+    throw new Error(
+      'ArtifactGraph no longer ships platform-repos.json; bind to the current product repo or pass an explicit legacy map path',
+    )
+  }
+  const file = mapPath
   const raw = JSON.parse(readFileSync(file, 'utf8')) as {
     workspaceRoot?: string
     defaultGroup?: string
