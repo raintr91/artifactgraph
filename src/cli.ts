@@ -26,6 +26,7 @@ import { indexLexicons, suggestTags } from './lexicon/load-lexicon.js'
 import { installAgents, AGENT_IDS } from './install/agents.js'
 import { checkboxPrompt } from './install/prompt.js'
 import {
+  assertProjectManifestCompatible,
   installProjectAssets,
   normalizeInstallTypes,
   parseInstallTypes,
@@ -98,6 +99,8 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
     console.error('note: `install` is deprecated — use `artifactgraph init`')
   }
   try {
+    const ctx = resolveRepoContext()
+    assertProjectManifestCompatible(ctx.root)
     const result = await installAgents({
       target: arg('--target'),
       location: (arg('--location') as 'global' | 'local' | undefined) ?? undefined,
@@ -115,7 +118,6 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
     }
     for (const s of result.skipped) console.log(`  skip: ${s}`)
     console.log(`Agents: ${AGENT_IDS.join(' | ')}`)
-    const ctx = resolveRepoContext()
     const types = await resolveInitTypes(ctx.stack)
     const project = installProjectAssets({
       repoRoot: ctx.root,

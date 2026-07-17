@@ -48,7 +48,11 @@ the testcase taxonomy; every type installs registry tags.
 ## Managed-file updates
 
 `.artifactgraph/install-manifest.json` stores package version, selected types,
-source paths, content hashes, and an optional stale marker. On update:
+source paths, content hashes, and an optional stale marker. It also identifies
+the owning package and declares `schemaVersion`, `toolApi`, and `harnessApi`.
+Init validates compatibility before writing, and prune validates it before
+deleting. ArtifactGraph 2.0.0 `version: 1` manifests are accepted as legacy and
+migrated by successful init; incompatible manifests fail closed. On update:
 
 - missing → create;
 - same as package → skip;

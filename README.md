@@ -53,14 +53,14 @@ The package installer does not initialize an arbitrary repository. Run
 | Version | Dùng khi | Cách lấy |
 |---------|----------|----------|
 | **v1.0.0** | Base / project nhỏ đang ổn với package cũ trên `main` tại thời điểm tag | `git checkout v1.0.0` · hoặc pin install vào tag này |
-| **v2.0.0** (`release/2.0.0`) | Standalone repo runtime + local lexicons + type-scoped MCP harness | Branch/PR này · sau merge: `main` |
+| **v2.0.1** (`release/2.0.0`) | v2 standalone runtime + contract-safe install manifest lifecycle | Branch/PR này · sau merge: `main` |
 
 ```bash
 # Giữ v1 (không nâng)
 git clone … artifactgraph && cd artifactgraph && git checkout v1.0.0 && npm run build
 
 # Thử v2
-git checkout release/2.0.0 && npm run build && artifactgraph version   # → 2.0.0
+git checkout release/2.0.0 && npm run build && artifactgraph version   # → 2.0.1
 ```
 
 ---

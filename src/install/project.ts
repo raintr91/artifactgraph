@@ -23,6 +23,11 @@ export type InstallType = 'common' | 'docs' | 'fe' | 'be' | 'test' | 'all'
 type LaneType = Exclude<InstallType, 'common' | 'all'>
 
 const LANE_TYPES: LaneType[] = ['docs', 'fe', 'be', 'test']
+export const INSTALL_MANIFEST_SCHEMA_VERSION = 1
+export const INSTALL_MANIFEST_PACKAGE = '@platform/artifactgraph'
+export const INSTALL_MANIFEST_TOOL_API = 1
+export const INSTALL_MANIFEST_HARNESS_API = 1
+const LEGACY_MANIFEST_PACKAGE_VERSION = '2.0.0'
 
 export interface ManagedFile {
   source: string
@@ -31,11 +36,20 @@ export interface ManagedFile {
 }
 
 export interface InstallManifest {
-  version: 1
+  schemaVersion: 1
+  package: '@platform/artifactgraph'
+  toolApi: 1
+  harnessApi: 1
   packageVersion: string
   types: InstallType[]
   files: Record<string, ManagedFile>
 }
+
+export type InstallManifestCompatibility =
+  | 'not-installed'
+  | 'supported'
+  | 'legacy'
+  | 'incompatible'
 
 export interface ProjectInstallResult {
   root: string
@@ -51,6 +65,15 @@ export interface ProjectInstallResult {
 export interface ProjectInstallStatus {
   installed: boolean
   manifestPath: string
+  compatibility: InstallManifestCompatibility
+  compatible: boolean
+  legacy: boolean
+  warnings: string[]
+  compatibilityError?: string
+  schemaVersion?: number
+  package?: string
+  toolApi?: number
+  harnessApi?: number
   packageVersion?: string
   types: InstallType[]
   healthy: string[]
@@ -163,23 +186,191 @@ export function parseInstallTypes(raw?: string): InstallType[] {
   return normalizeInstallTypes(parsed as InstallType[])
 }
 
-function readManifest(file: string): InstallManifest | null {
-  if (!existsSync(file)) return null
-  try {
-    return JSON.parse(readFileSync(file, 'utf8')) as InstallManifest
-  } catch {
-    return null
+export interface LegacyInstallManifest {
+  version: 1
+  packageVersion: '2.0.0'
+  types: InstallType[]
+  files: Record<string, ManagedFile>
+}
+
+interface ManifestInspection {
+  exists: boolean
+  compatibility: InstallManifestCompatibility
+  manifest: InstallManifest | LegacyInstallManifest | null
+  raw: Record<string, unknown> | null
+  warnings: string[]
+  error?: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function isInstallType(value: unknown): value is InstallType {
+  return ['common', 'docs', 'fe', 'be', 'test', 'all'].includes(String(value))
+}
+
+function hasValidManifestPayload(value: Record<string, unknown>): boolean {
+  if (
+    typeof value.packageVersion !== 'string' ||
+    !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(
+      value.packageVersion,
+    ) ||
+    !Array.isArray(value.types) ||
+    !value.types.every(isInstallType) ||
+    !isRecord(value.files)
+  ) {
+    return false
   }
+  return Object.values(value.files).every(
+    (file) =>
+      isManagedFile(file) &&
+      (!('stale' in file) || file.stale === undefined || typeof file.stale === 'boolean'),
+  )
+}
+
+function recoveryGuidance(manifestPath: string): string {
+  return `Upgrade ArtifactGraph to a compatible version, or back up and remove ${manifestPath}, then run artifactgraph init to re-initialize it.`
+}
+
+function inspectManifest(file: string): ManifestInspection {
+  if (!existsSync(file)) {
+    return {
+      exists: false,
+      compatibility: 'not-installed',
+      manifest: null,
+      raw: null,
+      warnings: [],
+    }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    return {
+      exists: true,
+      compatibility: 'incompatible',
+      manifest: null,
+      raw: null,
+      warnings: [],
+      error: `ArtifactGraph install manifest is not valid JSON. ${recoveryGuidance(file)}`,
+    }
+  }
+  if (!isRecord(parsed)) {
+    return {
+      exists: true,
+      compatibility: 'incompatible',
+      manifest: null,
+      raw: null,
+      warnings: [],
+      error: `ArtifactGraph install manifest must be a JSON object. ${recoveryGuidance(file)}`,
+    }
+  }
+
+  const fail = (reason: string): ManifestInspection => ({
+    exists: true,
+    compatibility: 'incompatible',
+    manifest: null,
+    raw: parsed,
+    warnings: [],
+    error: `${reason} ${recoveryGuidance(file)}`,
+  })
+
+  const hasContractFields = ['schemaVersion', 'package', 'toolApi', 'harnessApi'].some(
+    (key) => key in parsed,
+  )
+  if (hasContractFields) {
+    if (parsed.schemaVersion !== INSTALL_MANIFEST_SCHEMA_VERSION) {
+      return fail(
+        `Unsupported install-manifest schemaVersion ${String(parsed.schemaVersion)}; this ArtifactGraph supports schemaVersion ${INSTALL_MANIFEST_SCHEMA_VERSION}.`,
+      )
+    }
+    if (parsed.package !== INSTALL_MANIFEST_PACKAGE) {
+      return fail(
+        `Install manifest belongs to ${String(parsed.package)}, not ${INSTALL_MANIFEST_PACKAGE}.`,
+      )
+    }
+    if (parsed.toolApi !== INSTALL_MANIFEST_TOOL_API) {
+      return fail(
+        `Unsupported install-manifest toolApi ${String(parsed.toolApi)}; this ArtifactGraph supports toolApi ${INSTALL_MANIFEST_TOOL_API}.`,
+      )
+    }
+    if (parsed.harnessApi !== INSTALL_MANIFEST_HARNESS_API) {
+      return fail(
+        `Unsupported install-manifest harnessApi ${String(parsed.harnessApi)}; this ArtifactGraph supports harnessApi ${INSTALL_MANIFEST_HARNESS_API}.`,
+      )
+    }
+    if (!hasValidManifestPayload(parsed)) {
+      return fail('Install manifest has an invalid packageVersion, types, or files payload.')
+    }
+    return {
+      exists: true,
+      compatibility: 'supported',
+      manifest: parsed as unknown as InstallManifest,
+      raw: parsed,
+      warnings: [],
+    }
+  }
+
+  if (
+    parsed.version === 1 &&
+    parsed.packageVersion === LEGACY_MANIFEST_PACKAGE_VERSION &&
+    hasValidManifestPayload(parsed)
+  ) {
+    return {
+      exists: true,
+      compatibility: 'legacy',
+      manifest: parsed as unknown as LegacyInstallManifest,
+      raw: parsed,
+      warnings: [
+        `Legacy ArtifactGraph ${LEGACY_MANIFEST_PACKAGE_VERSION} install manifest; run artifactgraph init to migrate it to the package contract.`,
+      ],
+    }
+  }
+
+  return fail(
+    `Unsupported legacy install manifest; only ArtifactGraph ${LEGACY_MANIFEST_PACKAGE_VERSION} version:1 manifests can be migrated safely.`,
+  )
+}
+
+export function assertProjectManifestCompatible(
+  repoRoot: string,
+): InstallManifest | LegacyInstallManifest | null {
+  const manifestPath = path.join(
+    path.resolve(repoRoot),
+    '.artifactgraph',
+    'install-manifest.json',
+  )
+  const inspection = inspectManifest(manifestPath)
+  if (inspection.compatibility === 'incompatible') {
+    throw new Error(inspection.error)
+  }
+  return inspection.manifest
 }
 
 export function projectInstallStatus(repoRoot: string): ProjectInstallStatus {
   const root = path.resolve(repoRoot)
   const manifestPath = path.join(root, '.artifactgraph', 'install-manifest.json')
-  const manifest = readManifest(manifestPath)
+  const inspection = inspectManifest(manifestPath)
+  const manifest = inspection.manifest
+  const raw = inspection.raw
   const status: ProjectInstallStatus = {
-    installed: Boolean(manifest),
+    installed: inspection.exists,
     manifestPath,
-    packageVersion: manifest?.packageVersion,
+    compatibility: inspection.compatibility,
+    compatible: inspection.compatibility !== 'incompatible',
+    legacy: inspection.compatibility === 'legacy',
+    warnings: inspection.warnings,
+    compatibilityError: inspection.error,
+    schemaVersion:
+      typeof raw?.schemaVersion === 'number' ? raw.schemaVersion : undefined,
+    package: typeof raw?.package === 'string' ? raw.package : undefined,
+    toolApi: typeof raw?.toolApi === 'number' ? raw.toolApi : undefined,
+    harnessApi: typeof raw?.harnessApi === 'number' ? raw.harnessApi : undefined,
+    packageVersion:
+      manifest?.packageVersion ??
+      (typeof raw?.packageVersion === 'string' ? raw.packageVersion : undefined),
     types: manifest?.types ?? [],
     healthy: [],
     missing: [],
@@ -263,7 +454,7 @@ export function pruneProjectAssets(opts: {
 }): ProjectPruneResult {
   const root = path.resolve(opts.repoRoot)
   const manifestPath = path.join(root, '.artifactgraph', 'install-manifest.json')
-  const manifest = readManifest(manifestPath)
+  const manifest = assertProjectManifestCompatible(root)
   const result: ProjectPruneResult = {
     root,
     manifestPath,
@@ -426,7 +617,7 @@ export function installProjectAssets(opts: {
   const root = path.resolve(opts.repoRoot)
   const types = normalizeInstallTypes(opts.types)
   const manifestPath = path.join(root, '.artifactgraph', 'install-manifest.json')
-  const previous = readManifest(manifestPath)
+  const previous = assertProjectManifestCompatible(root)
   const nextFiles: Record<string, ManagedFile> = {}
   const result: ProjectInstallResult = {
     root,
@@ -492,7 +683,10 @@ export function installProjectAssets(opts: {
   }
 
   const manifest: InstallManifest = {
-    version: 1,
+    schemaVersion: INSTALL_MANIFEST_SCHEMA_VERSION,
+    package: INSTALL_MANIFEST_PACKAGE,
+    toolApi: INSTALL_MANIFEST_TOOL_API,
+    harnessApi: INSTALL_MANIFEST_HARNESS_API,
     packageVersion: packageVersion(),
     types,
     files: nextFiles,

@@ -64,6 +64,30 @@ test('init installs local common + test assets without hubs', () => {
   assert.ok(resolveVocabularyPath(repo, config, 'registryTags')?.startsWith(repo))
   const ignore = readFileSync(path.join(repo, '.artifactgraph/.gitignore'), 'utf8')
   assert.match(ignore, /!install-manifest\.json/)
+  const manifest = JSON.parse(
+    readFileSync(path.join(repo, '.artifactgraph/install-manifest.json'), 'utf8'),
+  )
+  assert.deepEqual(
+    {
+      schemaVersion: manifest.schemaVersion,
+      package: manifest.package,
+      toolApi: manifest.toolApi,
+      harnessApi: manifest.harnessApi,
+      packageVersion: manifest.packageVersion,
+    },
+    {
+      schemaVersion: 1,
+      package: '@platform/artifactgraph',
+      toolApi: 1,
+      harnessApi: 1,
+      packageVersion: '2.0.1',
+    },
+  )
+  const status = projectInstallStatus(repo)
+  assert.equal(status.compatibility, 'supported')
+  assert.equal(status.compatible, true)
+  assert.equal(status.legacy, false)
+  assert.deepEqual(status.warnings, [])
 })
 
 test('init preserves a customized managed file on update', () => {
@@ -79,6 +103,106 @@ test('init preserves a customized managed file on update', () => {
   })
   assert.ok(result.conflicts.includes('.cursor/skills/artifactgraph/SKILL.md'))
   assert.match(readFileSync(skill, 'utf8'), /custom/)
+})
+
+test('ArtifactGraph 2.0.0 legacy manifest warns and migrates on init', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-legacy-manifest-'))
+  installProjectAssets({ repoRoot: repo, stack: 'generic', types: ['fe'] })
+  const manifestPath = path.join(repo, '.artifactgraph/install-manifest.json')
+  const current = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  const legacy = {
+    version: 1,
+    packageVersion: '2.0.0',
+    types: current.types,
+    files: current.files,
+  }
+  writeFileSync(manifestPath, `${JSON.stringify(legacy, null, 2)}\n`)
+
+  const before = projectInstallStatus(repo)
+  assert.equal(before.compatibility, 'legacy')
+  assert.equal(before.compatible, true)
+  assert.equal(before.legacy, true)
+  assert.match(before.warnings[0], /run artifactgraph init to migrate/)
+
+  installProjectAssets({ repoRoot: repo, stack: 'generic', types: ['fe'] })
+  const migrated = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  assert.equal(migrated.version, undefined)
+  assert.equal(migrated.schemaVersion, 1)
+  assert.equal(migrated.package, '@platform/artifactgraph')
+  assert.equal(migrated.toolApi, 1)
+  assert.equal(migrated.harnessApi, 1)
+  assert.equal(migrated.packageVersion, '2.0.1')
+  assert.equal(projectInstallStatus(repo).compatibility, 'supported')
+})
+
+test('incompatible APIs fail before init writes or prune deletes', () => {
+  const initRepo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-api-init-'))
+  installProjectAssets({ repoRoot: initRepo, stack: 'generic', types: ['common'] })
+  const manifestPath = path.join(initRepo, '.artifactgraph/install-manifest.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  manifest.toolApi = 2
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  const managed = path.join(initRepo, '.cursor/skills/artifactgraph/SKILL.md')
+  unlinkSync(managed)
+
+  assert.throws(
+    () =>
+      installProjectAssets({
+        repoRoot: initRepo,
+        stack: 'generic',
+        types: ['common'],
+      }),
+    /Unsupported install-manifest toolApi 2.*Upgrade ArtifactGraph.*re-initialize/s,
+  )
+  assert.equal(existsSync(managed), false)
+  const incompatible = projectInstallStatus(initRepo)
+  assert.equal(incompatible.compatibility, 'incompatible')
+  assert.equal(incompatible.compatible, false)
+  assert.equal(incompatible.toolApi, 2)
+
+  const pruneRepo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-api-prune-'))
+  installProjectAssets({ repoRoot: pruneRepo, stack: 'generic', types: ['fe'] })
+  installProjectAssets({ repoRoot: pruneRepo, stack: 'generic', types: ['common'] })
+  const pruneManifestPath = path.join(pruneRepo, '.artifactgraph/install-manifest.json')
+  const pruneManifest = JSON.parse(readFileSync(pruneManifestPath, 'utf8'))
+  pruneManifest.harnessApi = 2
+  writeFileSync(pruneManifestPath, `${JSON.stringify(pruneManifest, null, 2)}\n`)
+  const stale = path.join(pruneRepo, '.cursor/extracts/artifactgraph-hooks-fe.md')
+
+  assert.throws(
+    () => pruneProjectAssets({ repoRoot: pruneRepo, yes: true }),
+    /Unsupported install-manifest harnessApi 2.*Upgrade ArtifactGraph/s,
+  )
+  assert.equal(existsSync(stale), true)
+})
+
+test('CLI reports incompatibility and preflights init before agent writes', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-api-cli-'))
+  installProjectAssets({ repoRoot: repo, stack: 'generic', types: ['common'] })
+  const manifestPath = path.join(repo, '.artifactgraph/install-manifest.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  manifest.schemaVersion = 2
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  const cli = path.join(root, 'bin/artifactgraph.mjs')
+
+  const statusResult = spawnSync(process.execPath, [cli, 'status'], {
+    cwd: repo,
+    encoding: 'utf8',
+  })
+  assert.equal(statusResult.status, 0, statusResult.stderr)
+  const status = JSON.parse(statusResult.stdout)
+  assert.equal(status.harness.compatibility, 'incompatible')
+  assert.equal(status.harness.schemaVersion, 2)
+  assert.match(status.harness.compatibilityError, /Upgrade ArtifactGraph/)
+
+  const initResult = spawnSync(
+    process.execPath,
+    [cli, 'init', '--target=cursor', '--type=common', '--yes'],
+    { cwd: repo, encoding: 'utf8' },
+  )
+  assert.equal(initResult.status, 1)
+  assert.match(initResult.stderr, /Unsupported install-manifest schemaVersion 2/)
+  assert.equal(existsSync(path.join(repo, '.cursor/mcp.json')), false)
 })
 
 test('legacy external paths degrade to package baseline and local-only gaps', () => {

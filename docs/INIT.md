@@ -64,6 +64,18 @@ Hashes and selected types are stored in
 `.artifactgraph/install-manifest.json`. Existing product phase skills and
 unrelated rules are never removed by init.
 
+The manifest declares the install package contract: `schemaVersion: 1`,
+`package: "@platform/artifactgraph"`, `toolApi: 1`, `harnessApi: 1`, and the
+installed `packageVersion`. Init and prune validate this contract before any
+managed file is written or deleted. `artifactgraph status` reports
+`compatibility`, `compatible`, `legacy`, warnings, and the API versions.
+
+Legacy `version: 1` manifests written by ArtifactGraph 2.0.0 remain readable.
+Status warns that they are legacy, and the next successful init rewrites them
+to the package contract. Unsupported schemas or tool/harness APIs fail with
+upgrade or re-initialization guidance; they are never treated as a fresh
+install.
+
 When a later init no longer selects a previously managed asset, its manifest
 entry is retained and marked stale. Review and remove only unchanged stale
 assets with:
