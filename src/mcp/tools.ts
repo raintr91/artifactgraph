@@ -16,7 +16,11 @@ import { analyzeBullets } from '../analyze/analyze-bullets.js'
 import { grillCheck, recordGrillDecision } from '../analyze/grill-check.js'
 import { parityCheck, recordParityDecision } from '../analyze/parity-check.js'
 import { runAllowlistedCommand } from '../gen/run-command.js'
-import { loadPlatformReposMap, resolveHarnessProfile } from '../config/platform-repos.js'
+import {
+  loadPlatformReposMap,
+  resolveHarnessProfile,
+  resolveHarnessSkills,
+} from '../config/platform-repos.js'
 import {
   pathResolutionSummary,
   resolveGapSourceFiles,
@@ -35,7 +39,7 @@ export function registerTools(server: McpServer): void {
   /** List platform-bases projects from this package's platform-repos.json. */
   server.tool(
     'artifactgraph_projects',
-    'List platform-bases projects (id, stack, root, role, harnessProfile) from artifactgraph/platform-repos.json',
+    'List platform-bases projects (id, stack, root, role, harnessProfile, expectedSkills) from artifactgraph/platform-repos.json',
     {},
     async () => {
       const map = loadPlatformReposMap()
@@ -46,6 +50,7 @@ export function registerTools(server: McpServer): void {
           id,
           ...p,
           harnessProfile: resolveHarnessProfile(id, map),
+          expectedSkills: resolveHarnessSkills(id, map),
         })),
       })
     },

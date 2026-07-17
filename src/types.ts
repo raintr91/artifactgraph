@@ -171,8 +171,23 @@ export interface ArtifactgraphConfig {
   dsl?: DslManifest
 }
 
+/** Skill allowlist for one harness sync profile (full | shared | docs | tests | tooling). */
+export interface PlatformHarnessProfile {
+  groups?: string[]
+  skills?: string[]
+  note?: string
+}
+
+export interface PlatformHarnessSyncPolicy {
+  /** propose = report drift only; never wipe other lanes blindly */
+  mode?: 'propose' | 'apply'
+  description?: string
+}
+
 export interface PlatformHarness {
   defaultByRole?: Record<string, string>
+  profiles?: Record<string, PlatformHarnessProfile>
+  syncPolicy?: PlatformHarnessSyncPolicy
 }
 
 export interface PlatformProject {

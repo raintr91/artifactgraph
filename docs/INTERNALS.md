@@ -124,15 +124,22 @@ Portal map includes project **`artifactgraph`** (`../artifactgraph`) in group `p
 
 ### Harness profiles
 
-`platform-repos.json` → `harness.defaultByRole` maps `role` → profile name; `projects.harnessProfile` overrides. Dùng để **phân lane** và tài liệu — `.cursor/` mỗi repo chỉnh tại đúng lane (không bulk-sync script trong package này).
+SSOT: `platform-repos.json` → `harness`:
 
-| Profile | Role(s) | Skills (lane) | MCP suggest lane |
-|---------|---------|---------------|------------------|
-| `full` | frontend, fullstack | prototype, test, unit, … | `fe` |
-| `shared` | backend, client | api, wire, unit + DNA | `be` |
-| `docs` | docs | spec, grill, dynamics | `docs` (= R2.1) |
-| `tests` | tests | testcase, grill-testcase | `plans` |
-| `tooling` | tooling (MCP) | platform-ai, platform-mark, artifactgraph | all (via product projectId) |
+- `defaultByRole` — `role` → profile (`client` → `full` với line trong `code-fe`)
+- `projects.harnessProfile` — override (MCP: `tooling`)
+- `profiles.*.skills` — allowlist `.cursor/skills` theo profile (sync **propose**, không wipe all)
+- `syncPolicy.mode: propose` — so sánh actual vs expected; đề xuất add/remove
+
+| Profile | Role(s) / groups | Skills (lane) | MCP suggest lane |
+|---------|------------------|---------------|------------------|
+| `full` | frontend, client, fullstack · `code-fe` / `code-fullstack` | DNA + prototype / wire / test / unit / api | `fe` |
+| `shared` | backend · `code-be` | DNA + api / wire / unit | `be` |
+| `docs` | docs · `docs` | DNA + spec / grill / dynamics | `docs` (= R2.1) |
+| `tests` | tests · `tests` | DNA + testcase / grill-testcase | `plans` |
+| `tooling` | tooling · `mcp` | platform-ai, platform-mark, artifactgraph | via product projectId |
+
+`.cursor/` chỉnh tại đúng lane repo. `python3 scripts/sync-platform-repos-bases.py` chỉ propagate **map** (không copy skills).
 
 ### Lexicon → lane
 

@@ -86,6 +86,16 @@ export function resolveHarnessProfile(
   return m.harness?.defaultByRole?.[p.role] ?? 'shared'
 }
 
+/** Expected `.cursor/skills` folder names for a project (from harness.profiles). */
+export function resolveHarnessSkills(
+  projectId: string,
+  map?: PlatformReposMap,
+): string[] {
+  const m = map ?? loadPlatformReposMap()
+  const profile = resolveHarnessProfile(projectId, m)
+  return m.harness?.profiles?.[profile]?.skills ?? []
+}
+
 /** Look up one project; throws with a helpful list if id is wrong. */
 export function resolveProject(projectId: string, mapPath?: string): PlatformProject & { id: string } {
   const map = loadPlatformReposMap(mapPath)
