@@ -23,13 +23,24 @@ export { resolveConfigPath, resolveSpecPath, pathResolutionSummary } from './con
 export { suggestTags, loadRegistryTagsLexicon, loadTestTaxonomyLexicon } from './lexicon/load-lexicon.js'
 export { inferSuggestLane, isFeStack, isBeStack } from './lexicon/infer-lane.js'
 export {
+  assertProjectManifestCompatible,
+  INSTALL_MANIFEST_HARNESS_API,
+  INSTALL_MANIFEST_PACKAGE,
+  INSTALL_MANIFEST_SCHEMA_VERSION,
+  INSTALL_MANIFEST_TOOL_API,
   installProjectAssets,
   normalizeInstallTypes,
   parseInstallTypes,
+  pruneProjectAssets,
   projectInstallStatus,
 } from './install/project.js'
 export type {
+  InstallManifest,
+  InstallManifestCompatibility,
   InstallType,
+  LegacyInstallManifest,
+  ManagedFile,
   ProjectInstallResult,
   ProjectInstallStatus,
+  ProjectPruneResult,
 } from './install/project.js'

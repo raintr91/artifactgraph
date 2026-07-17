@@ -1,14 +1,16 @@
 ---
 name: artifactgraph
-description: Local-first ArtifactGraph MCP: index, analyze gaps, suggest tags, remember decisions, and run allowlisted generation.
+description: Local-first ArtifactGraph MCP: index, analyze gaps, suggest tags, remember decisions, and recommend allowlisted commands.
 disable-model-invocation: true
 ---
 
 # /artifactgraph
 
 The current product repository owns `artifactgraph.json`, `registries/*.json`,
-templates, and `artifactgraph/lexicon/*.txt`. ArtifactGraph only indexes those
-files and runs commands explicitly allowlisted by that repository.
+templates, and `artifactgraph/lexicon/*.txt`. ArtifactGraph indexes those files
+and recommends product-owned allowlisted commands. It does **not** own
+architecture Markdown (Hubdocs) or executable generators (Bundlekit /
+Codegenkit / Testkit).
 
 ## Protocol
 
@@ -17,7 +19,10 @@ files and runs commands explicitly allowlisted by that repository.
    `artifactgraph_parity_check` before loading large registries into context.
 3. Show local A/B/C questions to the member and persist confirmed choices with
    `artifactgraph_remember`.
-4. Run generation only through `artifactgraph_gen` command keys.
+4. For generation/validation gates, use
+   `artifactgraph_allowlist_check` + `artifactgraph_recommend_command`, then
+   hand off execution to the owning kit. `artifactgraph_gen` is a deprecated
+   2.x compatibility shim only.
 5. Send only `cloudPromptSlice` for unresolved work.
 6. Promote accepted registry/template changes in the product repo, then rebuild.
 

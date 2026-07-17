@@ -10,22 +10,27 @@
 
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import { resolveProject, loadPlatformReposMap, detectStack, packageRoot } from './config/platform-repos.js'
+import { detectStack, packageRoot } from './config/platform-repos.js'
 import { requireRepoConfig, loadRepoConfig } from './config/load-config.js'
 import { IndexStore } from './db/index-store.js'
 import { loadRegistries, indexRegistries, registryIndexSummary } from './registry/load-registries.js'
 import { analyzeSpecFile } from './analyze/analyze-spec.js'
 import { analyzeBullets } from './analyze/analyze-bullets.js'
 import { parityCheck } from './analyze/parity-check.js'
-import { runAllowlistedCommand } from './gen/run-command.js'
+import {
+  inspectAllowlistedCommand,
+  runAllowlistedCommand,
+} from './gen/run-command.js'
 import { resolveSpecPath, pathResolutionSummary } from './config/resolve-paths.js'
 import { indexLexicons, suggestTags } from './lexicon/load-lexicon.js'
 import { installAgents, AGENT_IDS } from './install/agents.js'
 import { checkboxPrompt } from './install/prompt.js'
 import {
+  assertProjectManifestCompatible,
   installProjectAssets,
   normalizeInstallTypes,
   parseInstallTypes,
+  pruneProjectAssets,
   projectInstallStatus,
   type InstallType,
 } from './install/project.js'
@@ -53,20 +58,20 @@ Initialize current repo + wire agents:
   install …   # deprecated alias → init
 
 Current product repo:
-  projects
   init-project [--stack <id>] [--type <types>] [--force]   # deprecated alias
-  status       [--project <id>]
-  rebuild      [--project <id>]
-  analyze      [--project <id>] (--spec <path> | --bullets <text>)
-  gaps         [--project <id>] (--spec <path> | --bullets <text>)
-  suggest      [--project <id>] --lane fe|docs|plans [--bullets <text>]
-  parity       [--project <id>] (--module <dir> | --findings <path>)
-  gen          [--project <id>] --command <key> [--spec <path>]
+  status
+  prune [--project-root <path>] [--yes]   # dry-run unless --yes
+  rebuild
+  analyze      (--spec <path> | --bullets <text>)
+  gaps         (--spec <path> | --bullets <text>)
+  suggest      --lane fe|docs|plans [--bullets <text>]
+  parity       (--module <dir> | --findings <path>)
+  recommend-command --command <key> [--spec <path>]
+  allowlist-check   --command <key>
+  gen               --command <key> [--spec <path>] # deprecated executable shim
 
 Docs: docs/INIT.md · docs/INSTALL.md
 
-Env:
-  ARTIFACTGRAPH_WORKSPACE   folder that contains portal/, nextjs/, …
 `)
   process.exit(1)
 }
@@ -82,13 +87,8 @@ function has(flag: string): boolean {
   return process.argv.includes(flag)
 }
 
-/** Resolve product root: --project map OR cwd. */
+/** Resolve the current product root directly; MCP repos do not own workspace maps. */
 function resolveRepoContext(): { id: string; root: string; stack: string } {
-  const projectId = arg('--project')
-  if (projectId) {
-    const p = resolveProject(projectId)
-    return { id: p.id, root: p.root, stack: p.stack }
-  }
   const root = process.cwd()
   const stack = arg('--stack') ?? detectStack(root)
   return { id: path.basename(root), root, stack }
@@ -99,6 +99,8 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
     console.error('note: `install` is deprecated — use `artifactgraph init`')
   }
   try {
+    const ctx = resolveRepoContext()
+    assertProjectManifestCompatible(ctx.root)
     const result = await installAgents({
       target: arg('--target'),
       location: (arg('--location') as 'global' | 'local' | undefined) ?? undefined,
@@ -116,7 +118,6 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
     }
     for (const s of result.skipped) console.log(`  skip: ${s}`)
     console.log(`Agents: ${AGENT_IDS.join(' | ')}`)
-    const ctx = resolveRepoContext()
     const types = await resolveInitTypes(ctx.stack)
     const project = installProjectAssets({
       repoRoot: ctx.root,
@@ -199,14 +200,23 @@ async function main(): Promise<void> {
     return
   }
 
-  if (cmd === 'projects') {
-    const map = loadPlatformReposMap()
-    console.log(JSON.stringify({ workspaceRoot: map.workspaceRoot, projects: map.projects }, null, 2))
+  if (cmd === 'init-project') {
+    await runInitProject()
     return
   }
 
-  if (cmd === 'init-project') {
-    await runInitProject()
+  if (cmd === 'prune') {
+    const projectRoot = arg('--project-root')
+    if (has('--project-root') && (!projectRoot || projectRoot.startsWith('-'))) {
+      console.error('--project-root requires a path')
+      process.exitCode = 1
+      return
+    }
+    const result = pruneProjectAssets({
+      repoRoot: projectRoot ?? process.cwd(),
+      yes: has('--yes'),
+    })
+    console.log(JSON.stringify(result, null, 2))
     return
   }
 
@@ -316,7 +326,42 @@ async function main(): Promise<void> {
     return
   }
 
+  if (cmd === 'recommend-command' || cmd === 'allowlist-check') {
+    const cfg = requireRepoConfig(ctx.root)
+    const commandKey = arg('--command')
+    if (!commandKey) {
+      console.error('Missing --command')
+      usage()
+      return
+    }
+    const result = inspectAllowlistedCommand(ctx.root, cfg, commandKey, {
+      spec: arg('--spec') ?? '',
+    })
+    if (cmd === 'allowlist-check') {
+      console.log(
+        JSON.stringify(
+          {
+            ok: result.ok,
+            commandKey,
+            allowlisted: result.allowlisted,
+            knownKeys: result.knownKeys,
+            executableOwner: result.executableOwner,
+            recommendation: result.recommendation,
+          },
+          null,
+          2,
+        ),
+      )
+    } else {
+      console.log(JSON.stringify(result, null, 2))
+    }
+    process.exit(result.allowlisted ? 0 : 1)
+  }
+
   if (cmd === 'gen') {
+    console.error(
+      'deprecated: `artifactgraph gen` executes product commands; use `recommend-command` / `allowlist-check`, then the owning kit',
+    )
     const cfg = requireRepoConfig(ctx.root)
     const commandKey = arg('--command')
     if (!commandKey) {
