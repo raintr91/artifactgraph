@@ -51,17 +51,15 @@ Feature / spec / plans → workspace lane đúng (`--group=docs`, `code-fe`, …
 
 Registries SSOT trên product repo · `analyzeBullets` auto lane từ stack · chi tiết `/platform-mark`.
 
-## MCP harness template (tham khảo)
+## MCP harness conventions (tham khảo)
 
-Repo **artifactgraph** = **base chuẩn** `.cursor/` cho mọi repo MCP (`hubdocs`, …). Không có script sync harness — khi phát triển MCP mới, **copy/adapt tay** từ đây:
+Repo **artifactgraph** chỉ sở hữu package và harness `.cursor/` của chính nó. Mỗi MCP
+khác tự sở hữu packaged harness và quy trình cài đặt riêng; không dùng ArtifactGraph
+làm base, SSOT hoặc nguồn copy harness.
 
-| Copy gần nguyên | Đổi theo từng MCP |
-|-----------------|-------------------|
-| `platform-ai/`, `platform-mark/` | Skill chính: `artifactgraph/` → `<tên-mcp>/` |
-| `platform-ai.mdc`, `platform-code-size.mdc`, `team-flow-harness-state.mdc` | Rule opt-in: `artifactgraph.mdc` → `<tên-mcp>.mdc` |
-| `extracts/core/`, `platform-mark*`, registry bundles tooling | hooks / bundle MCP riêng |
-
-Giữ lane **tooling**: không nhét skill code (`api`, `prototype`, …) hay docs (`spec`, `testcase`, …). Map workspace: `platform-repos.json` · group `mcp`.
+Các MCP có thể tham khảo convention lane **tooling** và governance trong
+`platform-repos.json` · group `mcp`, nhưng không copy skill, rule, hook, extract,
+registry bundle hoặc platform-mark DNA từ ArtifactGraph.
 
 ## Done
 
