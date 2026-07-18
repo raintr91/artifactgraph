@@ -102,10 +102,26 @@ const COMMON_ASSETS: Array<[string, string]> = [
     'harness/common/skills/artifactgraph/SKILL.md',
     '.cursor/skills/artifactgraph/SKILL.md',
   ],
+  [
+    'harness/common/skills/docs-mark/SKILL.md',
+    '.cursor/skills/docs-mark/SKILL.md',
+  ],
+  [
+    'harness/common/skills/platform-mark/SKILL.md',
+    '.cursor/skills/platform-mark/SKILL.md',
+  ],
   ['harness/common/rules/artifactgraph.mdc', '.cursor/rules/artifactgraph.mdc'],
   [
     'harness/common/extracts/artifactgraph-hooks-core.md',
     '.cursor/extracts/artifactgraph-hooks-core.md',
+  ],
+  [
+    'harness/common/extracts/docs-mark.md',
+    '.cursor/extracts/docs-mark.md',
+  ],
+  [
+    'harness/common/extracts/docs-mark-detect.md',
+    '.cursor/extracts/docs-mark-detect.md',
   ],
   ['lexicon/registry-tags.en.txt', 'artifactgraph/lexicon/registry-tags.en.txt'],
 ]

@@ -80,7 +80,7 @@ test('init installs local common + test assets without hubs', () => {
       package: '@platform/artifactgraph',
       toolApi: 1,
       harnessApi: 1,
-      packageVersion: '2.0.1',
+      packageVersion: '2.1.0',
     },
   )
   const status = projectInstallStatus(repo)
@@ -131,7 +131,7 @@ test('ArtifactGraph 2.0.0 legacy manifest warns and migrates on init', () => {
   assert.equal(migrated.package, '@platform/artifactgraph')
   assert.equal(migrated.toolApi, 1)
   assert.equal(migrated.harnessApi, 1)
-  assert.equal(migrated.packageVersion, '2.0.1')
+  assert.equal(migrated.packageVersion, '2.1.0')
   assert.equal(projectInstallStatus(repo).compatibility, 'supported')
 })
 
@@ -483,6 +483,10 @@ test('default stack presets contain no base hub runtime paths', () => {
 test('Cursor harness example is an exact generated export', () => {
   for (const file of [
     'common/skills/artifactgraph/SKILL.md',
+    'common/skills/docs-mark/SKILL.md',
+    'common/skills/platform-mark/SKILL.md',
+    'common/extracts/docs-mark.md',
+    'common/extracts/docs-mark-detect.md',
     'common/rules/artifactgraph.mdc',
     'common/extracts/artifactgraph-hooks-core.md',
     'docs/extracts/artifactgraph-hooks-docs.md',
