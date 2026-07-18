@@ -129,6 +129,11 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
     for (const key of ['created', 'updated', 'skipped', 'conflicts'] as const) {
       if (project[key].length) console.log(`  ${key}: ${project[key].join(', ')}`)
     }
+    if (!project.types.includes('docs')) {
+      console.log(
+        'note: non-docs ArtifactGraph indexes this repo only; use CODEGENKIT_DOCS_ROOT/HUBDOCS_ROOT to reach the docs registry hub',
+      )
+    }
     console.log('Restart agent(s), then run artifactgraph rebuild')
   } catch (err) {
     console.error(err instanceof Error ? err.message : err)

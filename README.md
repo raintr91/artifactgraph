@@ -46,6 +46,16 @@ Requires **Node ≥ 22** (`node:sqlite`).
 The package installer does not initialize an arbitrary repository. Run
 `artifactgraph init` separately from each repo where ArtifactGraph is wanted.
 
+### Lane policy
+
+- **Docs is the canonical registry/parity hub** and the default ArtifactGraph
+  home (`--type=common,docs`).
+- FE/BE/tests installs index that repo only and are useful only for local
+  tag/allowlist hints.
+- ArtifactGraph never follows `HUBDOCS_ROOT` or `CODEGENKIT_DOCS_ROOT`.
+  Codegenkit uses its docs pointer for canonical FE IR/registries; Hubdocs uses
+  its own pointer for architecture ID lookups.
+
 ---
 
 ## Versions (chọn bản)
