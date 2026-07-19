@@ -14,7 +14,7 @@ import os from 'node:os'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { packageRoot } from '../config/platform-repos.js'
 import { checkboxPrompt, selectPrompt } from './prompt.js'
-import { buildTomlTable, upsertTomlTable } from './toml.js'
+import { buildTomlTable, removeTomlTable, upsertTomlTable } from './toml.js'
 
 export type AgentId =
   | 'claude'
@@ -583,6 +583,175 @@ export function installCursorMcp(opts: {
   const entry = buildMcpEntry({ useWsl: opts.useWsl })
   const file = opts.mcpFile ?? defaultCursorMcpPath()
   return mergeMcpJson(file, entry)
+}
+
+function removeMcpJson(file: string, dryRun: boolean): boolean {
+  if (!existsSync(file)) return false
+  const raw = readFileSync(file, 'utf8').trim()
+  if (!raw) return false
+  let doc: { mcpServers?: Record<string, unknown> }
+  try {
+    doc = JSON.parse(raw) as typeof doc
+  } catch {
+    return false
+  }
+  if (!doc.mcpServers || !('artifactgraph' in doc.mcpServers)) return false
+  if (!dryRun) {
+    delete doc.mcpServers.artifactgraph
+    writeFileSync(file, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
+  }
+  return true
+}
+
+function removeCodexToml(file: string, dryRun: boolean): boolean {
+  if (!existsSync(file)) return false
+  const existing = readFileSync(file, 'utf8')
+  const server = removeTomlTable(existing, 'mcp_servers.artifactgraph')
+  const env = removeTomlTable(server.content, 'mcp_servers.artifactgraph.env')
+  const removed = server.removed || env.removed
+  if (removed && !dryRun) {
+    writeFileSync(
+      file,
+      env.content.endsWith('\n') ? env.content : `${env.content}\n`,
+      'utf8',
+    )
+  }
+  return removed
+}
+
+function removeOpencodeConfig(file: string, dryRun: boolean): boolean {
+  if (!existsSync(file)) return false
+  const raw = readFileSync(file, 'utf8')
+  if (!raw.trim()) return false
+  let doc: Record<string, unknown>
+  try {
+    doc = parseJsonLoose(raw)
+  } catch {
+    return false
+  }
+  const mcp = doc.mcp as Record<string, unknown> | undefined
+  if (!mcp || !('artifactgraph' in mcp)) return false
+  if (!dryRun) {
+    delete mcp.artifactgraph
+    writeFileSync(file, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
+  }
+  return true
+}
+
+function removeHermesYaml(file: string, dryRun: boolean): boolean {
+  if (!existsSync(file)) return false
+  const raw = readFileSync(file, 'utf8')
+  if (!raw.trim()) return false
+  let doc: Record<string, unknown>
+  try {
+    doc = (parseYaml(raw) as Record<string, unknown>) ?? {}
+  } catch {
+    return false
+  }
+  const servers = doc.mcp_servers as Record<string, unknown> | undefined
+  const toolsets = doc.platform_toolsets as Record<string, unknown> | undefined
+  const cli = toolsets && Array.isArray(toolsets.cli) ? (toolsets.cli as unknown[]) : []
+  const hasServer = Boolean(servers && 'artifactgraph' in servers)
+  const hasTool = cli.includes('mcp-artifactgraph')
+  if (!hasServer && !hasTool) return false
+  if (!dryRun) {
+    if (hasServer) delete servers!.artifactgraph
+    if (hasTool) toolsets!.cli = cli.filter((item) => item !== 'mcp-artifactgraph')
+    writeFileSync(file, stringifyYaml(doc), 'utf8')
+  }
+  return true
+}
+
+export function removeClaudePermissions(
+  location: InstallLocation,
+  dryRun: boolean,
+  cwd = process.cwd(),
+): string | null {
+  const settings =
+    location === 'local'
+      ? path.join(cwd, '.claude', 'settings.json')
+      : path.join(os.homedir(), '.claude', 'settings.json')
+  if (!existsSync(settings)) return null
+  let doc: { permissions?: { allow?: string[] } }
+  try {
+    doc = JSON.parse(readFileSync(settings, 'utf8')) as typeof doc
+  } catch {
+    return null
+  }
+  const allow = doc.permissions?.allow
+  const permission = 'mcp__artifactgraph__*'
+  if (!allow?.includes(permission)) return null
+  if (!dryRun) {
+    doc.permissions!.allow = allow.filter((item) => item !== permission)
+    writeFileSync(settings, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
+  }
+  return settings
+}
+
+function removeAgentConfig(
+  agent: AgentId,
+  location: InstallLocation,
+  dryRun: boolean,
+  cwd: string,
+): string | null {
+  const file = agentConfigPath(agent, location, cwd)
+  let removed: boolean
+  switch (agent) {
+    case 'codex':
+      removed = removeCodexToml(file, dryRun)
+      break
+    case 'opencode':
+      removed = removeOpencodeConfig(file, dryRun)
+      break
+    case 'hermes':
+      removed = removeHermesYaml(file, dryRun)
+      break
+    default:
+      removed = removeMcpJson(file, dryRun)
+  }
+  return removed ? file : null
+}
+
+export interface UninstallAgentsOptions {
+  target?: string
+  location?: InstallLocation
+  yes?: boolean
+  cwd?: string
+}
+
+export interface UninstallAgentsResult {
+  targets: AgentId[]
+  location: InstallLocation
+  dryRun: boolean
+  removed: string[]
+  absent: string[]
+}
+
+/** Remove only ArtifactGraph-owned keys from shared agent configuration. */
+export function uninstallAgents(
+  opts: UninstallAgentsOptions = {},
+): UninstallAgentsResult {
+  const dryRun = !opts.yes
+  const cwd = opts.cwd ? path.resolve(opts.cwd) : process.cwd()
+  const location = opts.location ?? 'local'
+  const targets = parseTargets(opts.target ?? 'all', detectAgents(cwd))
+  const removed: string[] = []
+  const absent: string[] = []
+
+  for (const agent of targets) {
+    if (!supportsLocation(agent, location)) {
+      absent.push(`${agent}: no ${location} config`)
+      continue
+    }
+    const file = removeAgentConfig(agent, location, dryRun, cwd)
+    if (file) removed.push(`${agent}: ${file}`)
+    else absent.push(`${agent}: no artifactgraph entry`)
+    if (agent === 'claude') {
+      const permissions = removeClaudePermissions(location, dryRun, cwd)
+      if (permissions) removed.push(`claude: ${permissions} (permissions)`)
+    }
+  }
+  return { targets, location, dryRun, removed, absent }
 }
 
 async function promptInteractive(detected: AgentId[]): Promise<{

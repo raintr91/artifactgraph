@@ -3,8 +3,10 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   renameSync,
+  rmdirSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -18,6 +20,7 @@ import {
   loadStackPreset,
 } from '../config/load-config.js'
 import type { ArtifactgraphConfig } from '../types.js'
+import { forgetInstall, recordInstall } from './ledger.js'
 
 export type InstallType = 'common' | 'docs' | 'fe' | 'be' | 'test' | 'all'
 type LaneType = Exclude<InstallType, 'common' | 'all'>
@@ -95,6 +98,18 @@ export interface ProjectPruneResult {
   missing: string[]
   preservedModified: string[]
   preservedUnsafe: string[]
+}
+
+export interface ProjectUninstallResult {
+  root: string
+  manifestPath: string
+  dryRun: boolean
+  wouldDelete: string[]
+  deleted: string[]
+  missing: string[]
+  preservedModified: string[]
+  preservedUnsafe: string[]
+  manifestRemoved: boolean
 }
 
 const COMMON_ASSETS: Array<[string, string]> = [
@@ -524,6 +539,106 @@ export function pruneProjectAssets(opts: {
   return result
 }
 
+function pruneEmptyDirs(root: string, files: string[]): void {
+  const dirs = new Set<string>()
+  for (const file of files) {
+    let dir = path.dirname(file)
+    while (dir !== root && containedRelativePath(root, path.relative(root, dir))) {
+      dirs.add(dir)
+      dir = path.dirname(dir)
+    }
+  }
+  for (const dir of [...dirs].sort((a, b) => b.length - a.length)) {
+    try {
+      if (existsSync(dir) && readdirSync(dir).length === 0) rmdirSync(dir)
+    } catch {
+      // Leave non-empty, busy, or member-owned directories.
+    }
+  }
+}
+
+/**
+ * Remove all manifest-owned harness assets, including stale entries.
+ * Modified and unsafe files are preserved and reported.
+ */
+export function uninstallProjectAssets(opts: {
+  repoRoot: string
+  yes?: boolean
+}): ProjectUninstallResult {
+  const root = path.resolve(opts.repoRoot)
+  const manifestPath = path.join(root, '.artifactgraph', 'install-manifest.json')
+  const manifest = assertProjectManifestCompatible(root)
+  const result: ProjectUninstallResult = {
+    root,
+    manifestPath,
+    dryRun: !opts.yes,
+    wouldDelete: [],
+    deleted: [],
+    missing: [],
+    preservedModified: [],
+    preservedUnsafe: [],
+    manifestRemoved: false,
+  }
+  if (!manifest) {
+    if (opts.yes) forgetInstall(root)
+    return result
+  }
+
+  for (const [destRel, managed] of Object.entries(manifest.files)) {
+    if (!isManagedFile(managed) || !compatibleManagedPath(managed.source, destRel)) {
+      result.preservedUnsafe.push(destRel)
+      continue
+    }
+    const dest = containedRelativePath(root, destRel)
+    if (!dest) {
+      result.preservedUnsafe.push(destRel)
+      continue
+    }
+    if (!existsSync(dest)) {
+      result.missing.push(destRel)
+      continue
+    }
+    const safeDest = safeExistingManagedPath(root, destRel)
+    if (!safeDest) {
+      result.preservedUnsafe.push(destRel)
+      continue
+    }
+    if (sha256(readFileSync(safeDest, 'utf8')) !== managed.hash) {
+      result.preservedModified.push(destRel)
+      continue
+    }
+    result.wouldDelete.push(destRel)
+    if (opts.yes) {
+      unlinkSync(safeDest)
+      result.deleted.push(destRel)
+    }
+  }
+
+  const ignorePath = path.join(root, '.artifactgraph', '.gitignore')
+  if (existsSync(ignorePath)) {
+    const expected = '*\n!.gitignore\n!install-manifest.json\n'
+    if (readFileSync(ignorePath, 'utf8') === expected) {
+      result.wouldDelete.push('.artifactgraph/.gitignore')
+      if (opts.yes) {
+        unlinkSync(ignorePath)
+        result.deleted.push('.artifactgraph/.gitignore')
+      }
+    } else {
+      result.preservedModified.push('.artifactgraph/.gitignore')
+    }
+  }
+
+  result.wouldDelete.push('.artifactgraph/install-manifest.json')
+  if (opts.yes) {
+    unlinkSync(manifestPath)
+    result.deleted.push('.artifactgraph/install-manifest.json')
+    result.manifestRemoved = true
+    forgetInstall(root)
+    pruneEmptyDirs(root, result.deleted.map((rel) => path.join(root, rel)))
+  }
+  return result
+}
+
 function isExplicitNonHubPath(value: string | undefined): value is string {
   return typeof value === 'string' && value.length > 0 && !value.startsWith('@')
 }
@@ -715,5 +830,6 @@ export function installProjectAssets(opts: {
     : []
   const mergedRules = [...new Set([...existingRules, ...requiredRules])]
   writeAtomic(ignorePath, `${mergedRules.join('\n')}\n`)
+  recordInstall(root)
   return result
 }

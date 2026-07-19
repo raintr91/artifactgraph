@@ -91,6 +91,27 @@ files, symlinks, and incompatible or out-of-root manifest paths. It never
 removes product registries, `artifactgraph.json`, the local index, or platform
 maps.
 
+## Deinit and uninstall
+
+```bash
+artifactgraph deinit                         # current repo preview + confirm in TTY
+artifactgraph deinit --project-root <repo> --yes
+artifactgraph uninstall                      # global preview + confirm in TTY
+artifactgraph uninstall --discover ~/workspace --yes
+```
+
+`deinit` removes the current repo's manifest-owned harness assets and local MCP
+wiring. `uninstall` can run from anywhere and removes all repos recorded in the
+XDG state ledger, their local MCP entries, global MCP entries, the CLI install,
+and the ledger. `--discover` scans for pre-ledger
+`.artifactgraph/install-manifest.json` files.
+
+Without `--yes`, non-TTY use is a dry-run and TTY use previews before asking.
+Files whose hashes changed are preserved and reported. MCP removal edits only
+ArtifactGraph-owned keys in shared JSON/JSONC, TOML, and YAML agent configs.
+`artifactgraph.json`, product registries, and the local index remain
+product-owned and are not removed.
+
 ## Compatibility aliases
 
 `artifactgraph init-project` and `artifactgraph install` remain temporary

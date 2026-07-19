@@ -38,6 +38,9 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { inspectAllowlistedCommand } from '../dist/gen/run-command.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+process.env.ARTIFACTGRAPH_STATE_DIR = mkdtempSync(
+  path.join(os.tmpdir(), 'artifactgraph-test-state-'),
+)
 
 test('init installs local common + test assets without hubs', () => {
   const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-standalone-'))

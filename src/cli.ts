@@ -9,6 +9,8 @@
  */
 
 import { createRequire } from 'node:module'
+import { lstatSync, realpathSync, rmSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { detectStack, packageRoot } from './config/platform-repos.js'
 import { requireRepoConfig, loadRepoConfig } from './config/load-config.js'
@@ -23,8 +25,8 @@ import {
 } from './gen/run-command.js'
 import { resolveSpecPath, pathResolutionSummary } from './config/resolve-paths.js'
 import { indexLexicons, suggestTags } from './lexicon/load-lexicon.js'
-import { installAgents, AGENT_IDS } from './install/agents.js'
-import { checkboxPrompt } from './install/prompt.js'
+import { installAgents, uninstallAgents, AGENT_IDS } from './install/agents.js'
+import { checkboxPrompt, selectPrompt } from './install/prompt.js'
 import {
   assertProjectManifestCompatible,
   installProjectAssets,
@@ -32,8 +34,15 @@ import {
   parseInstallTypes,
   pruneProjectAssets,
   projectInstallStatus,
+  uninstallProjectAssets,
   type InstallType,
 } from './install/project.js'
+import {
+  discoverInstalls,
+  ledgerPath,
+  readLedger,
+  removeLedger,
+} from './install/ledger.js'
 
 const require = createRequire(import.meta.url)
 
@@ -61,6 +70,7 @@ Current product repo:
   init-project [--stack <id>] [--type <types>] [--force]   # deprecated alias
   status
   prune [--project-root <path>] [--yes]   # dry-run unless --yes
+  deinit [--project-root <path>] [--yes]  # remove this repo's harness + local MCP
   rebuild
   analyze      (--spec <path> | --bullets <text>)
   gaps         (--spec <path> | --bullets <text>)
@@ -69,6 +79,9 @@ Current product repo:
   recommend-command --command <key> [--spec <path>]
   allowlist-check   --command <key>
   gen               --command <key> [--spec <path>] # deprecated executable shim
+
+Global uninstall (run anywhere; removes all repo installs + MCP + CLI):
+  uninstall [--discover <dir>] [--yes]    # dry-run/confirm unless --yes
 
 Docs: docs/INIT.md · docs/INSTALL.md
 
@@ -185,6 +198,246 @@ async function runInitProject(): Promise<void> {
   )
 }
 
+type UninstallScope =
+  | 'repo'
+  | 'all-repos'
+  | 'mcp-local'
+  | 'mcp-global'
+  | 'cli'
+  | 'all'
+
+const UNINSTALL_SCOPES: UninstallScope[] = [
+  'repo',
+  'all-repos',
+  'mcp-local',
+  'mcp-global',
+  'cli',
+  'all',
+]
+
+interface UninstallFlags {
+  yes: boolean
+  keepMcp: boolean
+  target?: string
+  projectRoot?: string
+  discoverDir?: string
+}
+
+function cliLayout(): { installDir: string; binDir: string } {
+  const nativeWindowsDir =
+    process.platform === 'win32' && process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, 'artifactgraph')
+      : undefined
+  const installDir = process.env.ARTIFACTGRAPH_INSTALL_DIR
+    ? path.resolve(process.env.ARTIFACTGRAPH_INSTALL_DIR)
+    : nativeWindowsDir ?? path.join(os.homedir(), '.artifactgraph')
+  const binDir = process.env.ARTIFACTGRAPH_BIN_DIR
+    ? path.resolve(process.env.ARTIFACTGRAPH_BIN_DIR)
+    : nativeWindowsDir
+      ? path.join(nativeWindowsDir, 'bin')
+      : path.join(os.homedir(), '.local', 'bin')
+  return { installDir, binDir }
+}
+
+function lexists(file: string): boolean {
+  try {
+    lstatSync(file)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function realOrSelf(file: string): string {
+  try {
+    return realpathSync(file)
+  } catch {
+    return file
+  }
+}
+
+function removeCli(dryRun: boolean): {
+  removed: string[]
+  wouldRemove: string[]
+  skipped: string[]
+} {
+  const { installDir, binDir } = cliLayout()
+  const result = {
+    removed: [] as string[],
+    wouldRemove: [] as string[],
+    skipped: [] as string[],
+  }
+  const current = realOrSelf(process.cwd())
+  for (const target of [
+    path.join(binDir, 'artifactgraph'),
+    path.join(binDir, 'artifactgraph-mcp'),
+    path.join(binDir, 'artifactgraph.cmd'),
+    path.join(binDir, 'artifactgraph-mcp.cmd'),
+    installDir,
+  ]) {
+    if (!lexists(target)) continue
+    if (target === installDir && realOrSelf(target) === current) {
+      result.skipped.push(`${target} (running from here — remove manually)`)
+    } else if (dryRun) {
+      result.wouldRemove.push(target)
+    } else {
+      try {
+        rmSync(target, { recursive: true, force: true })
+        result.removed.push(target)
+      } catch (error) {
+        result.skipped.push(
+          `${target} (${error instanceof Error ? error.message : String(error)})`,
+        )
+      }
+    }
+  }
+  return result
+}
+
+function repoTargets(flags: UninstallFlags): string[] {
+  const repos = new Set(readLedger())
+  if (flags.discoverDir) {
+    for (const repo of discoverInstalls(flags.discoverDir)) repos.add(repo)
+  }
+  return [...repos]
+}
+
+function runUninstallScope(scope: UninstallScope, flags: UninstallFlags): void {
+  const root = flags.projectRoot ? path.resolve(flags.projectRoot) : process.cwd()
+  const removeRepo = (repoRoot: string): void => {
+    console.log(`repo: ${repoRoot}`)
+    const result = uninstallProjectAssets({ repoRoot, yes: flags.yes })
+    for (const file of result.wouldDelete) console.log(`  would delete: ${file}`)
+    for (const file of result.deleted) console.log(`  deleted: ${file}`)
+    for (const file of result.preservedModified) {
+      console.log(`  preserve modified: ${file}`)
+    }
+    for (const file of result.preservedUnsafe) console.log(`  preserve unsafe: ${file}`)
+  }
+  const removeMcp = (location: 'local' | 'global', cwd: string): void => {
+    const result = uninstallAgents({
+      target: flags.target ?? 'all',
+      location,
+      cwd,
+      yes: flags.yes,
+    })
+    if (!result.removed.length) {
+      console.log(`  mcp (${location}): no artifactgraph entry`)
+    }
+    for (const entry of result.removed) {
+      console.log(`  ${flags.yes ? 'unwired' : 'would unwire'} (${location}): ${entry}`)
+    }
+  }
+  const removeCliInstall = (): void => {
+    const result = removeCli(!flags.yes)
+    for (const file of result.wouldRemove) console.log(`  would remove: ${file}`)
+    for (const file of result.removed) console.log(`  removed: ${file}`)
+    for (const file of result.skipped) console.log(`  skip: ${file}`)
+  }
+
+  if (scope === 'repo') {
+    removeRepo(root)
+    if (!flags.keepMcp) removeMcp('local', root)
+    return
+  }
+  if (scope === 'all-repos' || scope === 'all') {
+    const repos = repoTargets(flags)
+    if (!repos.length) console.log('  (no registered repos — try --discover <dir>)')
+    for (const repo of repos) {
+      removeRepo(repo)
+      if (!flags.keepMcp) removeMcp('local', repo)
+    }
+    if (scope === 'all-repos') return
+  }
+  if (scope === 'mcp-local') {
+    removeMcp('local', root)
+    return
+  }
+  if (scope === 'mcp-global' || scope === 'all') removeMcp('global', root)
+  if (scope === 'cli' || scope === 'all') removeCliInstall()
+  if (scope === 'all') {
+    if (flags.yes) {
+      if (removeLedger()) console.log(`  ledger removed: ${ledgerPath()}`)
+    } else {
+      console.log(`  would remove ledger: ${ledgerPath()}`)
+    }
+  }
+}
+
+async function runUninstall(defaultScope: 'repo' | 'all'): Promise<void> {
+  const requiredPath = (flag: string): string | undefined => {
+    const value = arg(flag)
+    if (has(flag) && (!value || value.startsWith('-'))) {
+      throw new Error(`${flag} requires a path`)
+    }
+    return value
+  }
+  let projectRoot: string | undefined
+  let discoverDir: string | undefined
+  try {
+    projectRoot = requiredPath('--project-root')
+    discoverDir = requiredPath('--discover')
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error)
+    process.exitCode = 1
+    return
+  }
+  const flags: UninstallFlags = {
+    yes: has('--yes'),
+    keepMcp: has('--keep-mcp'),
+    target: arg('--target'),
+    projectRoot,
+    discoverDir,
+  }
+  try {
+    const scopeArg = arg('--scope')
+    let scope: UninstallScope = defaultScope
+    if (defaultScope === 'all' && scopeArg) {
+      if (!UNINSTALL_SCOPES.includes(scopeArg as UninstallScope)) {
+        throw new Error(`--scope must be one of: ${UNINSTALL_SCOPES.join(', ')}`)
+      }
+      scope = scopeArg as UninstallScope
+    }
+    const interactive = process.stdin.isTTY && process.stdout.isTTY && !flags.yes
+    if (interactive) {
+      console.log(`\nPreview (${scope}):`)
+      runUninstallScope(scope, { ...flags, yes: false })
+      const answer = await selectPrompt<'yes' | 'no'>({
+        message:
+          defaultScope === 'repo'
+            ? 'Apply artifactgraph deinit for this repo?'
+            : 'Apply global artifactgraph uninstall (all repos + MCP + CLI)?',
+        defaultIndex: 0,
+        choices: [
+          { value: 'no', name: 'No — cancel' },
+          { value: 'yes', name: 'Yes — remove now' },
+        ],
+      })
+      if (answer !== 'yes') {
+        console.log('Cancelled.')
+        return
+      }
+      console.log(`\nApplying (${scope}):`)
+      runUninstallScope(scope, { ...flags, yes: true })
+      console.log(`\nUninstalled (${scope}).`)
+      return
+    }
+    runUninstallScope(scope, flags)
+    console.log(
+      flags.yes
+        ? `\nUninstalled (${scope}).`
+        : `\nDry-run (${scope}) — pass --yes to apply.`,
+    )
+  } catch (error) {
+    if (error instanceof Error && error.message === 'cancelled') {
+      console.log('\nCancelled.')
+      return
+    }
+    console.error(error instanceof Error ? error.message : error)
+    process.exitCode = 1
+  }
+}
+
 async function main(): Promise<void> {
   const cmd = process.argv[2]
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') usage()
@@ -222,6 +475,16 @@ async function main(): Promise<void> {
       yes: has('--yes'),
     })
     console.log(JSON.stringify(result, null, 2))
+    return
+  }
+
+  if (cmd === 'deinit') {
+    await runUninstall('repo')
+    return
+  }
+
+  if (cmd === 'uninstall') {
+    await runUninstall('all')
     return
   }
 

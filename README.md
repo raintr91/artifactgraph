@@ -82,12 +82,31 @@ git checkout release/2.0.0 && npm run build && artifactgraph version   # → 2.0
 | Wire agents + initialize/update current repo | `artifactgraph init` |
 | Non-interactive init | `artifactgraph init --target=cursor --type=fe --yes` |
 | Remove unchanged stale harness assets | `prune` (dry-run) / `prune --yes` |
+| Remove this repo's owned harness + local MCP | `artifactgraph deinit [--yes]` |
+| Remove all tracked repos + MCP + CLI globally | `artifactgraph uninstall [--yes]` |
 | Index registries | `rebuild` |
 | Preflight | `analyze` / `gaps` / `parity` |
 | Command recommendation | `recommend-command --command …` / `allowlist-check --command …` |
 | Deprecated executable shim | `gen --command …` (2.x compatibility only; owning kit executes in next major) |
 
 `install` and `init-project` are deprecated compatibility aliases of `init`.
+
+`deinit` is the inverse of `init` for one product repo. `uninstall` is global
+and may be run from anywhere: it removes every repo in the install ledger,
+repo-local and global MCP wiring, the CLI links/tree, and then the ledger.
+Both commands preview without changing files unless `--yes` is supplied; in a
+TTY they preview and ask for confirmation. Modified managed files are preserved
+and reported, and shared agent config files lose only their `artifactgraph`
+entries. Older installs can be found with:
+
+```bash
+artifactgraph uninstall --discover ~/workspace --yes
+```
+
+The ledger is stored at
+`$ARTIFACTGRAPH_STATE_DIR/installs.json`,
+`$XDG_STATE_HOME/artifactgraph/installs.json`, or
+`~/.local/state/artifactgraph/installs.json`.
 
 ---
 
