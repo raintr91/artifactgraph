@@ -12,4 +12,15 @@ alwaysApply: false
 - Promote reviewed artifacts in the product repo, then rebuild the local index.
 - Do not depend on `platform-repos.json`, `base-docs`, or `base-tests`.
 
-Hooks: `.cursor/extracts/artifactgraph-phase-hooks.md`
+## Cross-repo routing
+
+- Architecture ID / C4 → Hubdocs (`HUBDOCS_ROOT`), not CodeGraph and not
+  ArtifactGraph.
+- IR / registry / generation → Codegenkit / Testkit pointers
+  (`CODEGENKIT_DOCS_ROOT`, `TESTKIT_DOCS_ROOT`, `TESTKIT_TESTS_ROOT`).
+- Symbol / call-graph of repo X → `codegraph-<key>` MCP for checkout X.
+- ArtifactGraph is local-only: never follow those pointers, never read repo
+  maps, never scan a workspace parent, never wire CodeGraph MCP itself.
+- Platform DNA owns map-based CodeGraph auto-wire and missing-index hints.
+
+Hooks: `.cursor/extracts/artifactgraph-hooks-core.md`

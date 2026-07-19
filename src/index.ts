@@ -35,12 +35,20 @@ export {
   projectInstallStatus,
 } from './install/project.js'
 export type {
+  GitignoreEntryStatus,
   InstallManifest,
   InstallManifestCompatibility,
   InstallType,
   LegacyInstallManifest,
   ManagedFile,
+  OwnedGitignoreEntry,
   ProjectInstallResult,
   ProjectInstallStatus,
   ProjectPruneResult,
 } from './install/project.js'
+export {
+  applyGeneratedGitignore,
+  canonicalGitignorePattern,
+  ensureGitignoreEntries,
+  removeGitignoreEntries,
+} from './install/gitignore.js'

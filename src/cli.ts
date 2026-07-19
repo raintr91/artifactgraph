@@ -132,15 +132,25 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
     for (const s of result.skipped) console.log(`  skip: ${s}`)
     console.log(`Agents: ${AGENT_IDS.join(' | ')}`)
     const types = await resolveInitTypes(ctx.stack)
+    const writtenAgentPaths = result.written
+      .map((entry) => entry.path)
+      .filter((file) => !file.includes('(permissions)'))
     const project = installProjectAssets({
       repoRoot: ctx.root,
       stack: ctx.stack,
       types,
       force: has('--force'),
+      writtenAgentPaths,
     })
     console.log(`Initialized ${ctx.root} (types=${project.types.join(',')})`)
     for (const key of ['created', 'updated', 'skipped', 'conflicts'] as const) {
       if (project[key].length) console.log(`  ${key}: ${project[key].join(', ')}`)
+    }
+    console.log(
+      `gitignore: ${project.gitignore.changed ? 'updated' : 'unchanged'} ${project.gitignore.file}`,
+    )
+    if (project.gitignore.added.length) {
+      console.log(`  added: ${project.gitignore.added.join(', ')}`)
     }
     if (!project.types.includes('docs')) {
       console.log(
@@ -313,6 +323,9 @@ function runUninstallScope(scope: UninstallScope, flags: UninstallFlags): void {
       console.log(`  preserve modified: ${file}`)
     }
     for (const file of result.preservedUnsafe) console.log(`  preserve unsafe: ${file}`)
+    for (const pattern of result.gitignorePreservedShared) {
+      console.log(`  preserve shared ignore: ${pattern}`)
+    }
   }
   const removeMcp = (location: 'local' | 'global', cwd: string): void => {
     const result = uninstallAgents({

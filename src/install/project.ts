@@ -21,6 +21,16 @@ import {
 } from '../config/load-config.js'
 import type { ArtifactgraphConfig } from '../types.js'
 import { forgetInstall, recordInstall } from './ledger.js'
+import {
+  applyGeneratedGitignore,
+  canonicalGitignorePattern,
+  gitignoreEntryStatus,
+  mergeGitignoreEntries,
+  removeGitignoreEntries,
+  type OwnedGitignoreEntry,
+} from './gitignore.js'
+
+export type { OwnedGitignoreEntry } from './gitignore.js'
 
 export type InstallType = 'common' | 'docs' | 'fe' | 'be' | 'test' | 'all'
 type LaneType = Exclude<InstallType, 'common' | 'all'>
@@ -46,6 +56,7 @@ export interface InstallManifest {
   packageVersion: string
   types: InstallType[]
   files: Record<string, ManagedFile>
+  gitignore?: OwnedGitignoreEntry[]
 }
 
 export type InstallManifestCompatibility =
@@ -63,6 +74,18 @@ export interface ProjectInstallResult {
   skipped: string[]
   conflicts: string[]
   manifestPath: string
+  gitignore: {
+    file: string
+    changed: boolean
+    entries: OwnedGitignoreEntry[]
+    added: string[]
+  }
+}
+
+export interface GitignoreEntryStatus {
+  pattern: string
+  shared: boolean
+  present: boolean
 }
 
 export interface ProjectInstallStatus {
@@ -87,6 +110,7 @@ export interface ProjectInstallStatus {
     missing: string[]
     modified: string[]
   }
+  gitignore: GitignoreEntryStatus[]
 }
 
 export interface ProjectPruneResult {
@@ -110,6 +134,8 @@ export interface ProjectUninstallResult {
   preservedModified: string[]
   preservedUnsafe: string[]
   manifestRemoved: boolean
+  gitignoreRemoved: string[]
+  gitignorePreservedShared: string[]
 }
 
 const COMMON_ASSETS: Array<[string, string]> = [
@@ -253,11 +279,45 @@ function hasValidManifestPayload(value: Record<string, unknown>): boolean {
   ) {
     return false
   }
+  if (value.gitignore !== undefined) {
+    if (!Array.isArray(value.gitignore)) return false
+    for (const entry of value.gitignore) {
+      if (
+        !isRecord(entry) ||
+        typeof entry.pattern !== 'string' ||
+        !entry.pattern ||
+        /[\r\n]/.test(entry.pattern) ||
+        (entry.shared !== undefined && typeof entry.shared !== 'boolean')
+      ) {
+        return false
+      }
+    }
+  }
   return Object.values(value.files).every(
     (file) =>
       isManagedFile(file) &&
       (!('stale' in file) || file.stale === undefined || typeof file.stale === 'boolean'),
   )
+}
+
+function normalizeManifestGitignore(
+  value: Record<string, unknown>,
+): OwnedGitignoreEntry[] | undefined {
+  if (!Array.isArray(value.gitignore)) return undefined
+  const seen = new Set<string>()
+  const entries: OwnedGitignoreEntry[] = []
+  for (const raw of value.gitignore) {
+    if (!isRecord(raw) || typeof raw.pattern !== 'string') continue
+    const pattern = raw.pattern.trim()
+    const key = canonicalGitignorePattern(pattern)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    entries.push({
+      pattern,
+      ...(raw.shared === true ? { shared: true } : {}),
+    })
+  }
+  return entries.length ? entries : undefined
 }
 
 function recoveryGuidance(manifestPath: string): string {
@@ -335,10 +395,14 @@ function inspectManifest(file: string): ManifestInspection {
     if (!hasValidManifestPayload(parsed)) {
       return fail('Install manifest has an invalid packageVersion, types, or files payload.')
     }
+    const gitignore = normalizeManifestGitignore(parsed)
     return {
       exists: true,
       compatibility: 'supported',
-      manifest: parsed as unknown as InstallManifest,
+      manifest: {
+        ...(parsed as unknown as InstallManifest),
+        ...(gitignore ? { gitignore } : {}),
+      },
       raw: parsed,
       warnings: [],
     }
@@ -411,6 +475,12 @@ export function projectInstallStatus(repoRoot: string): ProjectInstallStatus {
       missing: [],
       modified: [],
     },
+    gitignore: gitignoreEntryStatus(
+      root,
+      (manifest && 'gitignore' in manifest
+        ? ((manifest as InstallManifest).gitignore ?? [])
+        : []) as OwnedGitignoreEntry[],
+    ),
   }
   for (const [destRel, managed] of Object.entries(manifest?.files ?? {})) {
     if (!isManagedFile(managed)) continue
@@ -423,6 +493,9 @@ export function projectInstallStatus(repoRoot: string): ProjectInstallStatus {
     } else {
       bucket.modified.push(destRel)
     }
+  }
+  for (const entry of status.gitignore) {
+    if (!entry.present) status.missing.push(`.gitignore entry: ${entry.pattern}`)
   }
   return status
 }
@@ -578,6 +651,8 @@ export function uninstallProjectAssets(opts: {
     preservedModified: [],
     preservedUnsafe: [],
     manifestRemoved: false,
+    gitignoreRemoved: [],
+    gitignorePreservedShared: [],
   }
   if (!manifest) {
     if (opts.yes) forgetInstall(root)
@@ -625,6 +700,37 @@ export function uninstallProjectAssets(opts: {
       }
     } else {
       result.preservedModified.push('.artifactgraph/.gitignore')
+    }
+  }
+
+  const ownedIgnore =
+    'gitignore' in manifest
+      ? ((manifest as InstallManifest).gitignore ?? [])
+      : []
+  for (const entry of ownedIgnore) {
+    if (entry.shared) result.gitignorePreservedShared.push(entry.pattern)
+  }
+  const exclusiveIgnore = ownedIgnore
+    .filter((entry) => !entry.shared)
+    .map((entry) => entry.pattern)
+  if (exclusiveIgnore.length) {
+    if (opts.yes) {
+      const removed = removeGitignoreEntries(root, exclusiveIgnore)
+      result.gitignoreRemoved.push(...removed.removed)
+      for (const pattern of removed.removed) {
+        result.deleted.push(`.gitignore entry: ${pattern}`)
+      }
+    } else {
+      const present = gitignoreEntryStatus(
+        root,
+        exclusiveIgnore.map((pattern) => ({ pattern })),
+      )
+      for (const entry of present) {
+        if (entry.present) {
+          result.wouldDelete.push(`.gitignore entry: ${entry.pattern}`)
+          result.gitignoreRemoved.push(entry.pattern)
+        }
+      }
     }
   }
 
@@ -744,6 +850,8 @@ export function installProjectAssets(opts: {
   stack: string
   types: InstallType[]
   force?: boolean
+  /** Absolute local agent config paths written by this init (local only). */
+  writtenAgentPaths?: string[]
 }): ProjectInstallResult {
   const root = path.resolve(opts.repoRoot)
   const types = normalizeInstallTypes(opts.types)
@@ -759,6 +867,12 @@ export function installProjectAssets(opts: {
     skipped: [],
     conflicts: [],
     manifestPath,
+    gitignore: {
+      file: path.join(root, '.gitignore'),
+      changed: false,
+      entries: [],
+      added: [],
+    },
   }
 
   const assets = [...COMMON_ASSETS]
@@ -766,6 +880,8 @@ export function installProjectAssets(opts: {
     if (types.includes(type)) assets.push(...TYPE_ASSETS[type])
   }
 
+  let wroteCursorHarness = false
+  let wroteLexicon = false
   for (const [sourceRel, destRel] of assets) {
     const source = path.join(packageRoot(), sourceRel)
     const dest = path.join(root, destRel)
@@ -790,11 +906,15 @@ export function installProjectAssets(opts: {
       continue
     }
     nextFiles[destRel] = { source: sourceRel, hash: nextHash }
+    if (destRel.startsWith('.cursor/')) wroteCursorHarness = true
+    if (destRel.startsWith('artifactgraph/')) wroteLexicon = true
   }
 
   for (const [destRel, managed] of Object.entries(previous?.files ?? {})) {
     if (!(destRel in nextFiles) && isManagedFile(managed)) {
       nextFiles[destRel] = { ...managed, stale: true }
+      if (destRel.startsWith('.cursor/')) wroteCursorHarness = true
+      if (destRel.startsWith('artifactgraph/')) wroteLexicon = true
     }
   }
 
@@ -803,6 +923,7 @@ export function installProjectAssets(opts: {
   const priorConfig = existsSync(result.configPath)
     ? readFileSync(result.configPath, 'utf8')
     : null
+  const createdConfig = priorConfig === null
   if (priorConfig === null) {
     writeAtomic(result.configPath, configContent)
     result.created.push(CONFIG_NAME)
@@ -813,6 +934,33 @@ export function installProjectAssets(opts: {
     result.updated.push(CONFIG_NAME)
   }
 
+  const previousGitignore =
+    previous && 'gitignore' in previous
+      ? ((previous as InstallManifest).gitignore ?? [])
+      : []
+  const applied = applyGeneratedGitignore({
+    root,
+    writtenAgentPaths: opts.writtenAgentPaths,
+    createdConfig,
+    wroteCursorHarness:
+      wroteCursorHarness ||
+      result.created.some((f) => f.startsWith('.cursor/')) ||
+      result.updated.some((f) => f.startsWith('.cursor/')) ||
+      result.skipped.some((f) => f.startsWith('.cursor/')),
+    wroteLexicon:
+      wroteLexicon ||
+      result.created.some((f) => f.startsWith('artifactgraph/')) ||
+      result.updated.some((f) => f.startsWith('artifactgraph/')) ||
+      result.skipped.some((f) => f.startsWith('artifactgraph/')),
+  })
+  const gitignore = mergeGitignoreEntries(previousGitignore, applied.entries)
+  result.gitignore = {
+    file: applied.file,
+    changed: applied.changed,
+    entries: gitignore,
+    added: applied.added,
+  }
+
   const manifest: InstallManifest = {
     schemaVersion: INSTALL_MANIFEST_SCHEMA_VERSION,
     package: INSTALL_MANIFEST_PACKAGE,
@@ -821,6 +969,7 @@ export function installProjectAssets(opts: {
     packageVersion: packageVersion(),
     types,
     files: nextFiles,
+    ...(gitignore.length ? { gitignore } : {}),
   }
   writeAtomic(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
   const ignorePath = path.join(root, '.artifactgraph', '.gitignore')

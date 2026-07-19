@@ -9,8 +9,8 @@ disable-model-invocation: true
 The current product repository owns `artifactgraph.json`, `registries/*.json`,
 templates, and `artifactgraph/lexicon/*.txt`. ArtifactGraph indexes those files
 and recommends product-owned allowlisted commands. It does **not** own
-architecture Markdown (Hubdocs) or executable generators (Bundlekit /
-Codegenkit / Testkit).
+architecture Markdown (Hubdocs), executable generators (Bundlekit /
+Codegenkit / Testkit), or CodeGraph symbol indexes.
 
 ## Protocol
 
@@ -26,6 +26,22 @@ Codegenkit / Testkit).
 5. Send only `cloudPromptSlice` for unresolved work.
 6. Promote accepted registry/template changes in the product repo, then rebuild.
 
+## Cross-repo routing
+
+Cross-repo lookup is per-repo routing, never one giant workspace graph:
+
+- Architecture ID / C4 path → Hubdocs (`HUBDOCS_ROOT`).
+- IR / registry / generation → owning kit pointers
+  (`CODEGENKIT_DOCS_ROOT`, `TESTKIT_DOCS_ROOT`, `TESTKIT_TESTS_ROOT`).
+- Symbol / call-graph of repo X → that repo's `codegraph-<key>` MCP
+  (`--project-root` = checkout X).
+
+ArtifactGraph stays local-only: it does not follow those pointers, read
+`platform-repos.local.json` / `legacy-repos.local.json`, scan a workspace
+parent, initialize CodeGraph, or write cross-repo MCP entries. Platform DNA
+owns map-based CodeGraph auto-wire and missing-index guidance
+(`cd <root> && codegraph init`).
+
 ## Setup
 
 From the target repository:
@@ -35,4 +51,14 @@ artifactgraph init
 artifactgraph rebuild
 ```
 
-No central workspace map or sibling docs/tests hub is required.
+Preferred docs home (full registry/parity):
+
+```bash
+artifactgraph init --type=common,docs
+```
+
+On FE/BE/tests, install only when local hints are useful:
+
+```bash
+artifactgraph init --type=common,fe
+```

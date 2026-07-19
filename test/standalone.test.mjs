@@ -38,6 +38,9 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { inspectAllowlistedCommand } from '../dist/gen/run-command.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const pkgVersion = JSON.parse(
+  readFileSync(path.join(root, 'package.json'), 'utf8'),
+).version
 process.env.ARTIFACTGRAPH_STATE_DIR = mkdtempSync(
   path.join(os.tmpdir(), 'artifactgraph-test-state-'),
 )
@@ -83,7 +86,7 @@ test('init installs local common + test assets without hubs', () => {
       package: '@platform/artifactgraph',
       toolApi: 1,
       harnessApi: 1,
-      packageVersion: '2.1.0',
+      packageVersion: pkgVersion,
     },
   )
   const status = projectInstallStatus(repo)
@@ -134,7 +137,7 @@ test('ArtifactGraph 2.0.0 legacy manifest warns and migrates on init', () => {
   assert.equal(migrated.package, '@platform/artifactgraph')
   assert.equal(migrated.toolApi, 1)
   assert.equal(migrated.harnessApi, 1)
-  assert.equal(migrated.packageVersion, '2.1.0')
+  assert.equal(migrated.packageVersion, pkgVersion)
   assert.equal(projectInstallStatus(repo).compatibility, 'supported')
 })
 
@@ -575,4 +578,24 @@ test('dotnet-line suggests and infers as FE, not BE', async () => {
   assert.ok(stack.dsl.lanes.fe)
   assert.equal(stack.dsl.lanes.be, undefined)
   assert.equal(inferSuggestLane({ ...stack, version: 2 }), 'fe')
+})
+
+test('shipped skill/rule route cross-repo lookups without CodeGraph ownership', () => {
+  const skill = readFileSync(
+    path.join(root, 'harness/common/skills/artifactgraph/SKILL.md'),
+    'utf8',
+  )
+  const rule = readFileSync(
+    path.join(root, 'harness/common/rules/artifactgraph.mdc'),
+    'utf8',
+  )
+  for (const text of [skill, rule]) {
+    assert.match(text, /HUBDOCS_ROOT/)
+    assert.match(text, /codegraph-<key>/)
+    assert.match(text, /Platform DNA/)
+    assert.match(text, /local-only/i)
+    assert.doesNotMatch(text, /auto-wire from .*platform-repos/)
+  }
+  assert.match(skill, /write cross-repo MCP entries/)
+  assert.match(skill, /does not follow those pointers/)
 })

@@ -16,8 +16,14 @@ import { fileURLToPath } from 'node:url'
 import {
   installProjectAssets,
   uninstallProjectAssets,
+  projectInstallStatus,
 } from '../dist/install/project.js'
 import { installAgents, uninstallAgents } from '../dist/install/agents.js'
+import {
+  canonicalGitignorePattern,
+  ensureGitignoreEntries,
+  stripLegacyGitignoreBlock,
+} from '../dist/install/gitignore.js'
 import {
   discoverInstalls,
   forgetInstall,
@@ -214,4 +220,179 @@ test('CLI uninstall defaults to dry-run without --yes', () => {
   })
   assert.equal(result.status, 0, result.stderr)
   assert.match(result.stdout, /Dry-run \(all\)/)
+})
+
+test('gitignore helpers are idempotent, equivalence-aware, and preserve CRLF', () => {
+  const repo = temp('gitignore-helpers')
+  const file = path.join(repo, '.gitignore')
+  writeFileSync(file, 'node_modules/\r\n/.cursor/\r\n', 'utf8')
+
+  const first = ensureGitignoreEntries(repo, ['.cursor/', '.artifactgraph/', 'dist'])
+  assert.deepEqual(first.added.sort(), ['.artifactgraph/', 'dist'])
+  assert.match(readFileSync(file, 'utf8'), /\r\n/)
+
+  const second = ensureGitignoreEntries(repo, ['/.cursor/', '.artifactgraph/'])
+  assert.deepEqual(second.added, [])
+  assert.equal(second.changed, false)
+  assert.equal(canonicalGitignorePattern('/.cursor/'), canonicalGitignorePattern('.cursor'))
+})
+
+test('init merges actual local targets into .gitignore and status reports missing', async () => {
+  const repo = temp('gitignore-init')
+  writeFileSync(path.join(repo, '.gitignore'), '# member\nnode_modules/\n', 'utf8')
+  const previousCwd = process.cwd()
+  process.chdir(repo)
+  try {
+    const agents = await installAgents({ target: 'cursor,claude', yes: true })
+    const first = installProjectAssets({
+      repoRoot: repo,
+      stack: 'generic',
+      types: ['common'],
+      writtenAgentPaths: agents.written.map((entry) => entry.path),
+    })
+    assert.equal(first.gitignore.changed, true)
+    const ignore = readFileSync(path.join(repo, '.gitignore'), 'utf8')
+    assert.match(ignore, /# member/)
+    assert.match(ignore, /node_modules\//)
+    assert.match(ignore, /\.artifactgraph\//)
+    assert.match(ignore, /artifactgraph\//)
+    assert.match(ignore, /artifactgraph\.json/)
+    assert.match(ignore, /\.cursor\//)
+    assert.match(ignore, /\.mcp\.json/)
+    assert.doesNotMatch(ignore, />>> artifactgraph generated files/)
+
+    const manifest = JSON.parse(
+      readFileSync(path.join(repo, '.artifactgraph/install-manifest.json'), 'utf8'),
+    )
+    assert.ok(manifest.gitignore.some((entry) => entry.pattern === '.cursor/' && entry.shared))
+    assert.ok(
+      manifest.gitignore.some(
+        (entry) => entry.pattern === '.artifactgraph/' && !entry.shared,
+      ),
+    )
+
+    const second = installProjectAssets({
+      repoRoot: repo,
+      stack: 'generic',
+      types: ['common'],
+      writtenAgentPaths: agents.written.map((entry) => entry.path),
+    })
+    assert.equal(second.gitignore.changed, false)
+
+    // Drop an exclusive line and confirm status reports it missing.
+    writeFileSync(
+      path.join(repo, '.gitignore'),
+      '# member\nnode_modules/\n.cursor/\n.mcp.json\n',
+      'utf8',
+    )
+    const status = projectInstallStatus(repo)
+    assert.ok(status.gitignore.some((entry) => entry.pattern === '.artifactgraph/' && !entry.present))
+    assert.ok(status.missing.some((item) => item.includes('.artifactgraph/')))
+  } finally {
+    process.chdir(previousCwd)
+  }
+})
+
+test('local agent paths are ignored; global paths are not claimed', async () => {
+  const repo = temp('gitignore-local-global')
+  const previousCwd = process.cwd()
+  process.chdir(repo)
+  try {
+    const local = await installAgents({
+      target: 'codex,hermes,antigravity',
+      yes: true,
+    })
+    installProjectAssets({
+      repoRoot: repo,
+      stack: 'generic',
+      types: ['common'],
+      writtenAgentPaths: local.written.map((entry) => entry.path),
+    })
+    const ignore = readFileSync(path.join(repo, '.gitignore'), 'utf8')
+    assert.match(ignore, /\.codex\//)
+    assert.match(ignore, /\.hermes\//)
+    assert.match(ignore, /\.gemini\//)
+
+    const elsewhere = temp('gitignore-global-elsewhere')
+    process.chdir(elsewhere)
+    const global = await installAgents({
+      target: 'cursor',
+      location: 'global',
+      yes: true,
+      mcpFile: path.join(elsewhere, 'outside-mcp.json'),
+    })
+    // mcpFile path writes outside normal agentConfigPath; project install with
+    // an absolute path under a different root must not claim it.
+    installProjectAssets({
+      repoRoot: elsewhere,
+      stack: 'generic',
+      types: ['common'],
+      writtenAgentPaths: [path.join(os.homedir(), '.cursor', 'mcp.json')],
+    })
+    const globalIgnore = readFileSync(path.join(elsewhere, '.gitignore'), 'utf8')
+    assert.match(globalIgnore, /\.artifactgraph\//)
+    assert.match(globalIgnore, /\.cursor\//)
+    assert.doesNotMatch(globalIgnore, new RegExp(os.homedir().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    void global
+  } finally {
+    process.chdir(previousCwd)
+  }
+})
+
+test('deinit removes exclusive ignore entries but keeps shared .cursor/', async () => {
+  const repo = temp('gitignore-deinit')
+  const previousCwd = process.cwd()
+  process.chdir(repo)
+  try {
+    writeFileSync(
+      path.join(repo, '.gitignore'),
+      '# other toolkit\n.cursor/\ncoverage/\n',
+      'utf8',
+    )
+    const agents = await installAgents({ target: 'cursor', yes: true })
+    installProjectAssets({
+      repoRoot: repo,
+      stack: 'generic',
+      types: ['common'],
+      writtenAgentPaths: agents.written.map((entry) => entry.path),
+    })
+    assert.match(readFileSync(path.join(repo, '.gitignore'), 'utf8'), /\.artifactgraph\//)
+
+    const result = uninstallProjectAssets({ repoRoot: repo, yes: true })
+    assert.ok(result.gitignorePreservedShared.includes('.cursor/'))
+    const ignore = readFileSync(path.join(repo, '.gitignore'), 'utf8')
+    assert.match(ignore, /# other toolkit/)
+    assert.match(ignore, /\.cursor\//)
+    assert.match(ignore, /coverage\//)
+    assert.doesNotMatch(ignore, /\.artifactgraph\//)
+    assert.doesNotMatch(ignore, /^artifactgraph\.json$/m)
+    assert.equal(existsSync(path.join(repo, 'artifactgraph.json')), true)
+  } finally {
+    process.chdir(previousCwd)
+  }
+})
+
+test('legacy gitignore marker block is stripped on init', () => {
+  const repo = temp('gitignore-legacy')
+  writeFileSync(
+    path.join(repo, '.gitignore'),
+    [
+      'keep-me',
+      '# >>> artifactgraph generated files',
+      '/.cursor/',
+      '/.artifactgraph/',
+      '# <<< artifactgraph generated files',
+      '',
+    ].join('\n'),
+    'utf8',
+  )
+  const stripped = stripLegacyGitignoreBlock(repo)
+  assert.equal(stripped.changed, true)
+  assert.equal(readFileSync(path.join(repo, '.gitignore'), 'utf8'), 'keep-me\n')
+
+  installProjectAssets({ repoRoot: repo, stack: 'generic', types: ['common'] })
+  const ignore = readFileSync(path.join(repo, '.gitignore'), 'utf8')
+  assert.match(ignore, /keep-me/)
+  assert.match(ignore, /\.artifactgraph\//)
+  assert.doesNotMatch(ignore, />>> artifactgraph generated files/)
 })

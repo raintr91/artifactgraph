@@ -20,9 +20,20 @@ gets a small `cloudPromptSlice`.
 ```bash
 curl -fsSL https://raw.githubusercontent.com/raintr91/artifactgraph/main/install.sh | bash
 cd /path/to/product
-artifactgraph init                    # choose agents, then docs/fe/be/test/all
+artifactgraph init                    # interactive wizard (no flags needed)
 artifactgraph rebuild
 ```
+
+`init` runs an interactive wizard — no options required. It walks two steps:
+
+1. **Agents** — checkbox multi-select (detected agents are pre-checked).
+2. **Types** — checkbox `common / docs / fe / be / test / all` (suggested by
+   the detected stack).
+
+Agent MCP config is always project-local under the current repo; the wizard
+does not ask for an install location. Flags (`--target`, `--type`, `--yes`,
+`--location`) are only for CI / non-interactive use — see
+[docs/INIT.md](./docs/INIT.md).
 
 **Windows**
 
@@ -64,6 +75,7 @@ The package installer does not initialize an arbitrary repository. Run
 |---------|----------|----------|
 | **v1.0.0** | Base / project nhỏ đang ổn với package cũ trên `main` tại thời điểm tag | `git checkout v1.0.0` · hoặc pin install vào tag này |
 | **v2.0.1** (`release/2.0.0`) | v2 standalone runtime + contract-safe install manifest lifecycle | Branch/PR này · sau merge: `main` |
+| **v2.2.0** | Init wizard 2 bước (agents → types, luôn project-local, không hỏi location) + `.gitignore` merge theo contract Platform DNA (manifest `gitignore[]`, status báo thiếu, deinit giữ shared) | `main` mới nhất |
 
 ```bash
 # Giữ v1 (không nâng)
@@ -79,8 +91,8 @@ git checkout release/2.0.0 && npm run build && artifactgraph version   # → 2.0
 
 | Step | CLI |
 |------|-----|
-| Wire agents + initialize/update current repo | `artifactgraph init` |
-| Non-interactive init | `artifactgraph init --target=cursor --type=fe --yes` |
+| Wire agents + initialize/update current repo (interactive wizard) | `artifactgraph init` |
+| Non-interactive init (CI; skips the wizard) | `artifactgraph init --target=cursor --type=fe --yes` |
 | Remove unchanged stale harness assets | `prune` (dry-run) / `prune --yes` |
 | Remove this repo's owned harness + local MCP | `artifactgraph deinit [--yes]` |
 | Remove all tracked repos + MCP + CLI globally | `artifactgraph uninstall [--yes]` |

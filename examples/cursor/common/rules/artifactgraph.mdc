@@ -5,19 +5,22 @@ alwaysApply: false
 
 # ArtifactGraph
 
-- The docs repo is the full registry/parity hub. ArtifactGraph is installed
-  there by default with `common,docs`.
-- On FE/BE/tests, ArtifactGraph is local-only: use it only for that repo's own
-  tag/allowlist hints. It does not follow `HUBDOCS_ROOT` or
-  `CODEGENKIT_DOCS_ROOT`.
-- FE generation that needs full docs IR/registries must use
-  `CODEGENKIT_DOCS_ROOT`; Hubdocs ID lookups use `HUBDOCS_ROOT`.
-- Config, local registries, templates, and lexicons remain repository-local.
+- Product registries, templates, lexicons, and config are repository-local SSOT.
 - Use local analyze/grill/parity/suggest before requesting cloud work.
 - Never dump full registries or lexicons into `cloudPromptSlice`.
 - Run only generation keys allowlisted by the current repo.
-- Promote canonical registry changes in the docs repo; promote repo-local
-  allowlists/templates only in the current code/test repo.
+- Promote reviewed artifacts in the product repo, then rebuild the local index.
 - Do not depend on `platform-repos.json`, `base-docs`, or `base-tests`.
+
+## Cross-repo routing
+
+- Architecture ID / C4 → Hubdocs (`HUBDOCS_ROOT`), not CodeGraph and not
+  ArtifactGraph.
+- IR / registry / generation → Codegenkit / Testkit pointers
+  (`CODEGENKIT_DOCS_ROOT`, `TESTKIT_DOCS_ROOT`, `TESTKIT_TESTS_ROOT`).
+- Symbol / call-graph of repo X → `codegraph-<key>` MCP for checkout X.
+- ArtifactGraph is local-only: never follow those pointers, never read repo
+  maps, never scan a workspace parent, never wire CodeGraph MCP itself.
+- Platform DNA owns map-based CodeGraph auto-wire and missing-index hints.
 
 Hooks: `.cursor/extracts/artifactgraph-hooks-core.md`

@@ -47,7 +47,16 @@ artifactgraph/lexicon/testcase-taxonomy.en.txt   # test/all
 .cursor/skills/artifactgraph/SKILL.md
 .cursor/rules/artifactgraph.mdc
 .cursor/extracts/artifactgraph-hooks-*.md
+.gitignore   # merged patterns only; never a hand-maintained AG block
 ```
+
+`init` merges only patterns for artifacts it actually wrote under the repo
+(`.artifactgraph/`, `artifactgraph/`, `artifactgraph.json` when created, local
+agent configs, and shared `.cursor/`). Equivalent patterns are not duplicated;
+member content and EOL are preserved. Owned patterns are recorded in
+`install-manifest.json` → `gitignore[]`. `status` reports missing ignore lines.
+`deinit` removes exclusive entries and keeps shared ones (for example
+`.cursor/`) so other toolkits keep working.
 
 The local MCP launcher is pinned to the repository where `init` ran. MCP product
 tools therefore use that repo directly and do not accept/require a project id.
