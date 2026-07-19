@@ -13,8 +13,8 @@ cd /path/to/product
 artifactgraph init
 ```
 
-The wizard first selects target agents, then install location, then ArtifactGraph
-types:
+The wizard first selects target agents, then ArtifactGraph types. Agent MCP
+configuration is always project-local under the current repository:
 
 - `common` — core skill, rule, hooks, and registry-tag lexicon; always included
 - `docs` — docs/spec and legacy/parity hooks
@@ -22,6 +22,9 @@ types:
 - `be` — backend hooks
 - `test` — testcase hooks and taxonomy
 - `all` — every type; only installed when explicitly selected
+
+Codex, Hermes, and Antigravity use `.codex/config.toml`,
+`.hermes/config.yaml`, and `.gemini/config/mcp_config.json` respectively.
 
 ## Non-interactive
 
@@ -31,9 +34,8 @@ artifactgraph init --target=cursor,claude --type=fe,be --yes
 artifactgraph init --target=all --type=all --yes
 ```
 
-Project-local agent configuration is the default. Agents that only support
-global configuration are reported as skipped unless `--location=global` is
-explicit.
+`--target`, `--type`, `--yes`, and the explicit `--location` override remain
+available for CI and other non-interactive use.
 
 ## Files installed
 

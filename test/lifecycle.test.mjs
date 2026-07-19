@@ -17,7 +17,7 @@ import {
   installProjectAssets,
   uninstallProjectAssets,
 } from '../dist/install/project.js'
-import { uninstallAgents } from '../dist/install/agents.js'
+import { installAgents, uninstallAgents } from '../dist/install/agents.js'
 import {
   discoverInstalls,
   forgetInstall,
@@ -98,6 +98,39 @@ test('MCP uninstall removes only ArtifactGraph keys from shared config', () => {
   assert.equal(remaining.editorSetting, true)
   assert.equal(remaining.mcpServers.artifactgraph, undefined)
   assert.deepEqual(remaining.mcpServers.another, { command: 'other', args: [] })
+})
+
+test('local uninstall removes Codex, Hermes, and Antigravity entries', async () => {
+  const repo = temp('local-agent-uninstall')
+  const previousCwd = process.cwd()
+  process.chdir(repo)
+  try {
+    const installed = await installAgents({
+      target: 'codex,hermes,antigravity',
+      yes: true,
+    })
+    assert.equal(installed.location, 'local')
+    assert.deepEqual(installed.skipped, [])
+
+    const removed = uninstallAgents({
+      target: 'codex,hermes,antigravity',
+      location: 'local',
+      cwd: repo,
+      yes: true,
+    })
+    assert.equal(removed.removed.length, 3)
+
+    const codex = readFileSync(path.join(repo, '.codex', 'config.toml'), 'utf8')
+    const hermes = readFileSync(path.join(repo, '.hermes', 'config.yaml'), 'utf8')
+    const antigravity = JSON.parse(
+      readFileSync(path.join(repo, '.gemini', 'config', 'mcp_config.json'), 'utf8'),
+    )
+    assert.doesNotMatch(codex, /mcp_servers\.artifactgraph/)
+    assert.doesNotMatch(hermes, /artifactgraph/)
+    assert.equal(antigravity.mcpServers.artifactgraph, undefined)
+  } finally {
+    process.chdir(previousCwd)
+  }
 })
 
 test('CLI deinit is repo-local and uninstall is global from any directory', () => {

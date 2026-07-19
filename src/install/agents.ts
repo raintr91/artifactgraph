@@ -13,7 +13,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { packageRoot } from '../config/platform-repos.js'
-import { checkboxPrompt, selectPrompt } from './prompt.js'
+import { checkboxPrompt } from './prompt.js'
 import { buildTomlTable, removeTomlTable, upsertTomlTable } from './toml.js'
 
 export type AgentId =
@@ -68,9 +68,6 @@ const AGENT_ALIASES: Record<string, AgentId> = {
   kiro: 'kiro',
   kilo: 'kilo',
 }
-
-/** Codex / Hermes / Antigravity: global-only (same as CodeGraph). */
-const GLOBAL_ONLY: ReadonlySet<AgentId> = new Set(['codex', 'hermes', 'antigravity'])
 
 export interface InstallOptions {
   /** csv / auto / all / single id */
@@ -233,8 +230,8 @@ function opencodeConfigPath(location: InstallLocation, cwd: string): string {
   return jsonc
 }
 
-export function supportsLocation(agent: AgentId, location: InstallLocation): boolean {
-  if (location === 'local' && GLOBAL_ONLY.has(agent)) return false
+export function supportsLocation(_agent: AgentId, _location: InstallLocation): boolean {
+  // Every selected agent supports project-local configuration under the init cwd.
   return true
 }
 
@@ -258,11 +255,11 @@ export function agentConfigPath(
       case 'kilo':
         return path.join(cwd, '.kilocode', 'mcp.json')
       case 'codex':
-        return path.join(os.homedir(), '.codex', 'config.toml')
+        return path.join(cwd, '.codex', 'config.toml')
       case 'hermes':
-        return path.join(hermesHome(), 'config.yaml')
+        return path.join(cwd, '.hermes', 'config.yaml')
       case 'antigravity':
-        return defaultAntigravityMcpPath()
+        return path.join(cwd, '.gemini', 'config', 'mcp_config.json')
     }
   }
 
@@ -754,10 +751,7 @@ export function uninstallAgents(
   return { targets, location, dryRun, removed, absent }
 }
 
-async function promptInteractive(detected: AgentId[]): Promise<{
-  targets: AgentId[]
-  location: InstallLocation
-}> {
+async function promptInteractive(detected: AgentId[]): Promise<AgentId[]> {
   console.log('artifactgraph init — wire MCP into agents\n')
   const pre = detected.length > 0 ? detected : (['cursor'] as AgentId[])
 
@@ -772,22 +766,7 @@ async function promptInteractive(detected: AgentId[]): Promise<{
     })),
   })
 
-  const location = await selectPrompt<InstallLocation>({
-    message: 'Install location?',
-    defaultIndex: 0,
-    choices: [
-      {
-        value: 'local',
-        name: 'local — project configs only (codex/hermes/antigravity need global)',
-      },
-      {
-        value: 'global',
-        name: 'global — home configs for all projects',
-      },
-    ],
-  })
-
-  return { targets, location }
+  return targets
 }
 
 /**
@@ -829,9 +808,8 @@ export async function installAgents(opts: InstallOptions = {}): Promise<InstallR
     targets = parseTargets('auto', detected)
     location = opts.location ?? 'local'
   } else {
-    const picked = await promptInteractive(detected)
-    targets = picked.targets
-    location = opts.location ?? picked.location
+    targets = await promptInteractive(detected)
+    location = opts.location ?? 'local'
   }
 
   const baseEntry = buildMcpEntry({

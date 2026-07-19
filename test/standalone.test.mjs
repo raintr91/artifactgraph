@@ -409,6 +409,26 @@ test('claude local init writes .mcp.json (project scope)', async () => {
   }
 })
 
+test('yes defaults previously global-only agents to project-local configs', async () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-local-agents-'))
+  const prev = process.cwd()
+  process.chdir(repo)
+  try {
+    const result = await installAgents({
+      target: 'codex,hermes,antigravity',
+      yes: true,
+    })
+
+    assert.equal(result.location, 'local')
+    assert.deepEqual(result.skipped, [])
+    assert.ok(existsSync(path.join(repo, '.codex', 'config.toml')))
+    assert.ok(existsSync(path.join(repo, '.hermes', 'config.yaml')))
+    assert.ok(existsSync(path.join(repo, '.gemini', 'config', 'mcp_config.json')))
+  } finally {
+    process.chdir(prev)
+  }
+})
+
 test('baseline parser recognizes section K process tags', () => {
   const lexicon = parseRegistryTagsLexicon(
     path.join(root, 'lexicon/registry-tags.en.txt'),
