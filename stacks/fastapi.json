@@ -3,24 +3,45 @@
   "mode": "brownfield",
   "commands": {
     "genDry": [
-      "./codegen/runners/generate",
-      "dry",
-      "--id",
+      "codegenkit",
+      "api-gen:dry",
+      "--adapter=fastapi",
+      "--",
+      "--spec",
       "{spec}"
     ],
     "gen": [
-      "./codegen/runners/generate",
-      "write",
-      "--id",
+      "codegenkit",
+      "api-gen",
+      "--adapter=fastapi",
+      "--",
+      "--spec",
+      "{spec}"
+    ],
+    "unitGenDry": [
+      "codegenkit",
+      "api-unit-gen:dry",
+      "--adapter=fastapi",
+      "--",
+      "--spec",
+      "{spec}"
+    ],
+    "unitGen": [
+      "codegenkit",
+      "api-unit-gen",
+      "--adapter=fastapi",
+      "--",
+      "--spec",
       "{spec}"
     ],
     "registryValidate": [
-      "./codegen/runners/generate",
-      "registry"
+      "codegenkit",
+      "api-registry",
+      "--adapter=fastapi"
     ],
     "commonRegistry": [
-      "./registries/validate-common",
-      "validate"
+      "codegenkit",
+      "common-registry"
     ]
   },
   "registries": [
@@ -35,8 +56,9 @@
   ],
   "specRoots": [],
   "templates": {
-    "root": "codegen/templates",
-    "engine": "jinja2"
+    "root": "adapters/fastapi/codegen/templates",
+    "engine": "jinja2",
+    "note": "SSOT in Codegenkit; product has no root codegen/"
   },
   "dsl": {
     "ssot": "product-repo",
@@ -54,13 +76,16 @@
           "#needs-endpoint",
           "#needs-dto"
         ],
-        "note": "BE registry + templates stay in product repo; MCP indexes only"
+        "note": "Registries at product root; engines in Codegenkit"
       },
       "unit": {
         "registries": [
           "registries/unit-test.registry.json"
         ],
-        "genKeys": [],
+        "genKeys": [
+          "unitGenDry",
+          "unitGen"
+        ],
         "needsTags": [
           "#needs-unit-test"
         ]

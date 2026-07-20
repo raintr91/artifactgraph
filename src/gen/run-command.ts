@@ -34,13 +34,29 @@ function commandOwner(commandKey: string): InspectCommandResult['executableOwner
   if (['docsRender', 'specSplit', 'specMerge', 'legacyValidate'].includes(commandKey)) {
     return 'bundlekit'
   }
-  if (['testcaseGen', 'testcaseGenDry', 'casesRender', 'testE2e'].includes(commandKey)) {
+  if (
+    ['testcaseGen', 'testcaseGenDry', 'casesRender', 'testE2e', 'e2eRegistry'].includes(
+      commandKey,
+    )
+  ) {
     return 'testkit'
   }
   if (
-    ['gen', 'genDry', 'unitGen', 'unitGenDry', 'registryValidate', 'commonRegistry'].includes(
-      commandKey,
-    )
+    [
+      'gen',
+      'genDry',
+      'unitGen',
+      'unitGenDry',
+      'registryValidate',
+      'unitRegistry',
+      'commonRegistry',
+      'contractGen',
+      'contractGenDry',
+      'contractRegistry',
+      'nestGen',
+      'nestGenDry',
+      'nestRegistry',
+    ].includes(commandKey)
   ) {
     return 'codegenkit'
   }

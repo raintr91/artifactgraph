@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -578,6 +579,30 @@ test('dotnet-line suggests and infers as FE, not BE', async () => {
   assert.ok(stack.dsl.lanes.fe)
   assert.equal(stack.dsl.lanes.be, undefined)
   assert.equal(inferSuggestLane({ ...stack, version: 2 }), 'fe')
+})
+
+test('stack presets use toolkit CLIs (no pnpm portal:/api:/nest: wrappers)', () => {
+  const stackDir = path.join(root, 'stacks')
+  for (const name of readdirSync(stackDir).filter((f) => f.endsWith('.json'))) {
+    const stack = JSON.parse(readFileSync(path.join(stackDir, name), 'utf8'))
+    for (const [key, argv] of Object.entries(stack.commands ?? {})) {
+      assert.ok(Array.isArray(argv), `${name}.${key} argv`)
+      assert.notEqual(argv[0], 'pnpm', `${name}.${key} must not use pnpm wrappers`)
+      assert.ok(
+        ['codegenkit', 'testkit', 'bundlekit', 'node'].includes(argv[0]) ||
+          argv.length === 0,
+        `${name}.${key}: unexpected bin ${argv[0]}`,
+      )
+      const joined = argv.join(' ')
+      assert.doesNotMatch(
+        joined,
+        /\bportal:(gen|unit-gen|registry|lifecycle|e2e-registry)\b/,
+        `${name}.${key}`,
+      )
+      assert.doesNotMatch(joined, /\b(api|nest|contract):(gen|unit-gen|registry)\b/, `${name}.${key}`)
+      assert.doesNotMatch(joined, /^\.\/codegen\//, `${name}.${key}`)
+    }
+  }
 })
 
 test('shipped skill/rule route cross-repo lookups without CodeGraph ownership', () => {

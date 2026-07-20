@@ -900,6 +900,19 @@ export function installProjectAssets(opts: {
       writeAtomic(dest, content)
       result.updated.push(destRel)
     } else {
+      // Shared config skills can overlap across toolkits; skip instead of conflict if already present
+      if (
+        destRel.includes('configure-repo-maps') ||
+        destRel.includes('legacy-platform') ||
+        destRel.includes('configure-legacy-')
+      ) {
+        result.skipped.push(destRel)
+        nextFiles[destRel] = { source: sourceRel, hash: nextHash }
+        if (destRel.startsWith('.cursor/')) wroteCursorHarness = true
+        if (destRel.startsWith('artifactgraph/')) wroteLexicon = true
+        continue
+      }
+      
       result.conflicts.push(destRel)
       const prior = previous?.files[destRel]
       if (isManagedFile(prior)) nextFiles[destRel] = { ...prior, stale: undefined }

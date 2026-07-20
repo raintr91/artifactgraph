@@ -3,32 +3,41 @@
   "mode": "brownfield",
   "commands": {
     "genDry": [
-      "pnpm",
-      "api:gen:dry",
-      "--id",
+      "codegenkit",
+      "api-gen:dry",
+      "--adapter=laravel",
+      "--",
+      "--spec",
       "{spec}"
     ],
     "gen": [
-      "pnpm",
-      "api:gen",
-      "--id",
+      "codegenkit",
+      "api-gen",
+      "--adapter=laravel",
+      "--",
+      "--spec",
       "{spec}"
     ],
     "unitGenDry": [
-      "pnpm",
-      "api:unit-gen:dry",
+      "codegenkit",
+      "api-unit-gen:dry",
+      "--adapter=laravel",
+      "--",
       "--spec",
       "{spec}"
     ],
     "unitGen": [
-      "pnpm",
-      "api:unit-gen",
+      "codegenkit",
+      "api-unit-gen",
+      "--adapter=laravel",
+      "--",
       "--spec",
       "{spec}"
     ],
     "registryValidate": [
-      "pnpm",
-      "api:registry"
+      "codegenkit",
+      "api-registry",
+      "--adapter=laravel"
     ]
   },
   "registries": [
@@ -42,8 +51,9 @@
   ],
   "specRoots": [],
   "templates": {
-    "root": "unitgen/templates",
-    "engine": "hbs"
+    "root": "adapters/laravel",
+    "engine": "mixed",
+    "note": "api-gen Node-in-kit; unitgen PHP synced to src/.codegenkit/"
   },
   "dsl": {
     "ssot": "product-repo",
@@ -60,7 +70,7 @@
           "#needs-endpoint",
           "#needs-dto"
         ],
-        "note": "BE registry + templates stay in api repo; MCP indexes only"
+        "note": "Registries at product root; engines in Codegenkit"
       },
       "unit": {
         "registries": [

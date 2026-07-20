@@ -3,54 +3,66 @@
   "mode": "brownfield",
   "commands": {
     "genDry": [
-      "pnpm",
-      "portal:gen:dry",
+      "codegenkit",
+      "gen:dry",
+      "--adapter=nextjs",
+      "--",
       "--id",
       "{spec}"
     ],
     "gen": [
-      "pnpm",
-      "portal:gen",
+      "codegenkit",
+      "gen",
+      "--adapter=nextjs",
+      "--",
       "--id",
       "{spec}"
     ],
     "unitGenDry": [
-      "pnpm",
-      "portal:unit-gen:dry",
-      "--spec",
+      "codegenkit",
+      "unit-gen:dry",
+      "--adapter=nextjs",
+      "--",
+      "--id",
       "{spec}"
     ],
     "unitGen": [
-      "pnpm",
-      "portal:unit-gen",
-      "--spec",
+      "codegenkit",
+      "unit-gen",
+      "--adapter=nextjs",
+      "--",
+      "--id",
       "{spec}"
     ],
     "testcaseGenDry": [
-      "pnpm",
+      "testkit",
       "testcase:gen:dry",
+      "--",
       "--id",
       "{spec}"
     ],
     "testcaseGen": [
-      "pnpm",
+      "testkit",
       "testcase:gen",
+      "--",
       "--id",
       "{spec}"
     ],
     "contractGenDry": [
-      "pnpm",
-      "contract:gen:dry",
+      "codegenkit",
+      "contract-gen:dry",
+      "--",
       "--spec",
       "{spec}"
     ],
     "registryValidate": [
-      "pnpm",
-      "portal:registry"
+      "codegenkit",
+      "registry",
+      "--adapter=nextjs"
     ],
     "contractRegistry": [
-      "pnpm",
-      "contract:registry"
+      "codegenkit",
+      "contract-registry"
     ]
   },
   "registries": [
@@ -66,8 +78,9 @@
   ],
   "specRoots": [],
   "templates": {
-    "root": "codegen/templates",
-    "engine": "hbs"
+    "root": "adapters/nextjs/codegen/templates",
+    "engine": "hbs",
+    "note": "SSOT in Codegenkit; product has no root codegen/"
   },
   "dsl": {
     "ssot": "product-repo",

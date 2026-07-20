@@ -3,61 +3,68 @@
   "mode": "brownfield",
   "commands": {
     "genDry": [
-      "pnpm",
-      "portal:gen:dry",
+      "codegenkit",
+      "gen:dry",
+      "--adapter=nuxt4",
+      "--",
       "--id",
       "{spec}"
     ],
     "gen": [
-      "pnpm",
-      "portal:gen",
+      "codegenkit",
+      "gen",
+      "--adapter=nuxt4",
+      "--",
       "--id",
       "{spec}"
     ],
     "unitGenDry": [
-      "pnpm",
-      "portal:unit-gen:dry",
-      "--spec",
+      "codegenkit",
+      "unit-gen:dry",
+      "--adapter=nuxt4",
+      "--",
+      "--id",
       "{spec}"
     ],
     "unitGen": [
-      "pnpm",
-      "portal:unit-gen",
-      "--spec",
+      "codegenkit",
+      "unit-gen",
+      "--adapter=nuxt4",
+      "--",
+      "--id",
       "{spec}"
     ],
     "testcaseGenDry": [
-      "pnpm",
+      "testkit",
       "testcase:gen:dry",
+      "--",
       "--id",
       "{spec}"
     ],
     "testcaseGen": [
-      "pnpm",
+      "testkit",
       "testcase:gen",
+      "--",
       "--id",
       "{spec}"
     ],
-    "lifecycleSync": [
-      "pnpm",
-      "portal:lifecycle",
-      "sync"
-    ],
     "registryValidate": [
-      "pnpm",
-      "portal:registry"
+      "codegenkit",
+      "registry",
+      "--adapter=nuxt4"
     ],
     "unitRegistry": [
-      "pnpm",
-      "portal:unit-registry"
+      "codegenkit",
+      "unit-registry",
+      "--adapter=nuxt4"
     ],
     "e2eRegistry": [
-      "pnpm",
-      "portal:e2e-registry"
+      "testkit",
+      "e2e-registry"
     ],
     "commonRegistry": [
-      "pnpm",
-      "platform-common:registry"
+      "codegenkit",
+      "common-registry"
     ]
   },
   "registries": [
@@ -74,8 +81,9 @@
   ],
   "specRoots": [],
   "templates": {
-    "root": "codegen/templates",
-    "engine": "hbs"
+    "root": "adapters/nuxt4/codegen/templates",
+    "engine": "hbs",
+    "note": "SSOT in Codegenkit; product has no root codegen/"
   },
   "dsl": {
     "ssot": "product-repo",
@@ -85,7 +93,6 @@
           "registries/design.registry.json",
           "registries/common.registry.json"
         ],
-        "templates": "codegen/templates",
         "genKeys": [
           "genDry",
           "gen"
@@ -96,7 +103,7 @@
           "#shell:",
           "#widget:"
         ],
-        "note": "Review OK \u2192 promote design/common registry in product repo; rebuild index"
+        "note": "Review OK → promote design/common registry in product repo; rebuild index"
       },
       "unit": {
         "registries": [
@@ -129,10 +136,9 @@
         "registries": [
           "registries/page-lifecycle.registry.json"
         ],
-        "genKeys": [
-          "lifecycleSync"
-        ],
-        "needsTags": []
+        "genKeys": [],
+        "needsTags": [],
+        "note": "Updated by codegenkit gen; no separate lifecycle CLI"
       }
     }
   },

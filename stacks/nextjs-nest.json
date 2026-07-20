@@ -3,30 +3,37 @@
   "mode": "brownfield",
   "commands": {
     "genDry": [
-      "pnpm",
-      "portal:gen:dry",
+      "codegenkit",
+      "gen:dry",
+      "--adapter=nextjs",
+      "--",
       "--id",
       "{spec}"
     ],
     "nestGenDry": [
-      "pnpm",
-      "nest:gen:dry",
+      "codegenkit",
+      "api-gen:dry",
+      "--adapter=nestjs",
+      "--",
       "--spec",
       "{spec}"
     ],
     "contractGenDry": [
-      "pnpm",
-      "contract:gen:dry",
+      "codegenkit",
+      "contract-gen:dry",
+      "--",
       "--spec",
       "{spec}"
     ],
     "registryValidate": [
-      "pnpm",
-      "portal:registry"
+      "codegenkit",
+      "registry",
+      "--adapter=nextjs"
     ],
     "nestRegistry": [
-      "pnpm",
-      "nest:registry"
+      "codegenkit",
+      "api-registry",
+      "--adapter=nestjs"
     ]
   },
   "registries": [
@@ -41,8 +48,9 @@
   ],
   "specRoots": [],
   "templates": {
-    "root": "codegen/templates",
-    "engine": "hbs"
+    "root": "adapters/nextjs/codegen/templates",
+    "engine": "hbs",
+    "note": "FE SSOT nextjs + BE nestjs in Codegenkit"
   },
   "dsl": {
     "ssot": "product-repo",

@@ -3,17 +3,29 @@
   "mode": "brownfield",
   "commands": {
     "genDry": [
-      "./codegen/runners/generate",
-      "dry",
-      "--id",
+      "codegenkit",
+      "gen:dry",
+      "--adapter=dotnet-line",
+      "--",
+      "--spec",
+      "{spec}"
+    ],
+    "gen": [
+      "codegenkit",
+      "gen",
+      "--adapter=dotnet-line",
+      "--",
+      "--spec",
       "{spec}"
     ],
     "registryValidate": [
-      "./codegen/runners/generate",
-      "registry"
+      "codegenkit",
+      "registry",
+      "--adapter=dotnet-line"
     ]
   },
   "registries": [
+    "registries/dotnet-line.codegen.registry.json",
     "registries/codegen.registry.json"
   ],
   "gapSources": [
@@ -23,24 +35,26 @@
   ],
   "specRoots": [],
   "templates": {
-    "root": "codegen/templates",
-    "engine": "scriban"
+    "root": "adapters/dotnet-line/codegen",
+    "engine": "scriban",
+    "note": "SSOT in Codegenkit; product has no root codegen/"
   },
   "dsl": {
     "ssot": "product-repo",
     "lanes": {
       "fe": {
         "registries": [
-          "registries/codegen.registry.json"
+          "registries/dotnet-line.codegen.registry.json"
         ],
         "genKeys": [
-          "genDry"
+          "genDry",
+          "gen"
         ],
         "needsTags": [
           "#needs-shell",
           "#needs-widget"
         ],
-        "note": "WinForms/kiosk client codegen — MCP indexes only"
+        "note": "WinForms/kiosk client — Codegenkit CLI; MCP indexes only"
       }
     }
   },

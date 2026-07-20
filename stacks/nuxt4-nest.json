@@ -3,36 +3,45 @@
   "mode": "brownfield",
   "commands": {
     "genDry": [
-      "pnpm",
-      "portal:gen:dry",
+      "codegenkit",
+      "gen:dry",
+      "--adapter=nuxt4",
+      "--",
       "--id",
       "{spec}"
     ],
     "gen": [
-      "pnpm",
-      "portal:gen",
+      "codegenkit",
+      "gen",
+      "--adapter=nuxt4",
+      "--",
       "--id",
       "{spec}"
     ],
     "nestGenDry": [
-      "pnpm",
-      "nest:gen:dry",
+      "codegenkit",
+      "api-gen:dry",
+      "--adapter=nestjs",
+      "--",
       "--spec",
       "{spec}"
     ],
     "contractGenDry": [
-      "pnpm",
-      "contract:gen:dry",
+      "codegenkit",
+      "contract-gen:dry",
+      "--",
       "--spec",
       "{spec}"
     ],
     "registryValidate": [
-      "pnpm",
-      "portal:registry"
+      "codegenkit",
+      "registry",
+      "--adapter=nuxt4"
     ],
     "nestRegistry": [
-      "pnpm",
-      "nest:registry"
+      "codegenkit",
+      "api-registry",
+      "--adapter=nestjs"
     ]
   },
   "registries": [
@@ -49,8 +58,9 @@
   ],
   "specRoots": [],
   "templates": {
-    "root": "codegen/templates",
-    "engine": "hbs"
+    "root": "adapters/nuxt4/codegen/templates",
+    "engine": "hbs",
+    "note": "FE SSOT nuxt4 + BE nestjs in Codegenkit"
   },
   "dsl": {
     "ssot": "product-repo",

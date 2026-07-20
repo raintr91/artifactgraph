@@ -3,23 +3,29 @@
   "mode": "brownfield",
   "commands": {
     "genDry": [
-      "./codegen/runners/generate",
-      "dry",
-      "--id",
+      "codegenkit",
+      "api-gen:dry",
+      "--adapter=dotnet-integration",
+      "--",
+      "--spec",
       "{spec}"
     ],
     "gen": [
-      "./codegen/runners/generate",
-      "write",
-      "--id",
+      "codegenkit",
+      "api-gen",
+      "--adapter=dotnet-integration",
+      "--",
+      "--spec",
       "{spec}"
     ],
     "registryValidate": [
-      "./codegen/runners/generate",
-      "registry"
+      "codegenkit",
+      "api-registry",
+      "--adapter=dotnet-integration"
     ]
   },
   "registries": [
+    "registries/dotnet-integration.codegen.registry.json",
     "registries/codegen.registry.json",
     "registries/common.registry.json"
   ],
@@ -30,15 +36,16 @@
   ],
   "specRoots": [],
   "templates": {
-    "root": "codegen/templates",
-    "engine": "scriban"
+    "root": "adapters/dotnet-integration/codegen",
+    "engine": "scriban",
+    "note": "SSOT in Codegenkit; product has no root codegen/"
   },
   "dsl": {
     "ssot": "product-repo",
     "lanes": {
       "be": {
         "registries": [
-          "registries/codegen.registry.json",
+          "registries/dotnet-integration.codegen.registry.json",
           "registries/common.registry.json"
         ],
         "genKeys": [
@@ -49,7 +56,7 @@
           "#needs-endpoint",
           "#needs-dto"
         ],
-        "note": "Integration BE — MCP indexes codegen registry only"
+        "note": "Integration BE — Codegenkit CLI; MCP indexes registries only"
       }
     }
   },
