@@ -734,6 +734,15 @@ export function uninstallProjectAssets(opts: {
     }
   }
 
+  const configPath = path.join(root, 'artifactgraph.json')
+  if (existsSync(configPath)) {
+    result.wouldDelete.push('artifactgraph.json')
+    if (opts.yes) {
+      unlinkSync(configPath)
+      result.deleted.push('artifactgraph.json')
+    }
+  }
+
   result.wouldDelete.push('.artifactgraph/install-manifest.json')
   if (opts.yes) {
     unlinkSync(manifestPath)

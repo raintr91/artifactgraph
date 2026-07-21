@@ -71,7 +71,7 @@ test('deinit removes owned files but preserves modified and product config', () 
   assert.ok(result.preservedModified.includes(modifiedRel))
   assert.equal(existsSync(modified), true)
   assert.equal(existsSync(path.join(repo, '.cursor/rules/artifactgraph.mdc')), false)
-  assert.equal(existsSync(path.join(repo, 'artifactgraph.json')), true)
+  assert.equal(existsSync(path.join(repo, 'artifactgraph.json')), false)
   assert.equal(existsSync(path.join(repo, '.artifactgraph/install-manifest.json')), false)
   assert.equal(readLedger().includes(repo), false)
 })
@@ -366,7 +366,7 @@ test('deinit removes exclusive ignore entries but keeps shared .cursor/', async 
     assert.match(ignore, /coverage\//)
     assert.doesNotMatch(ignore, /\.artifactgraph\//)
     assert.doesNotMatch(ignore, /^artifactgraph\.json$/m)
-    assert.equal(existsSync(path.join(repo, 'artifactgraph.json')), true)
+    assert.equal(existsSync(path.join(repo, 'artifactgraph.json')), false)
   } finally {
     process.chdir(previousCwd)
   }
