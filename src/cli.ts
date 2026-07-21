@@ -154,7 +154,7 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
     }
     if (!project.types.includes('docs')) {
       console.log(
-        'note: non-docs ArtifactGraph indexes this repo only; use CODEGENKIT_DOCS_ROOT/HUBDOCS_ROOT to reach the docs registry hub',
+        'note: non-docs ArtifactGraph indexes this repo only; use CODEGENKIT_DOCS_ROOT/DOCSKIT_ROOT to reach the docs registry hub',
       )
     }
     console.log('Restart agent(s), then run artifactgraph rebuild')

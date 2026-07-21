@@ -382,7 +382,7 @@ test('allowlist check reports unknown key without executing', () => {
   const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-allowlist-'))
   const cfg = {
     ...defaultRepoConfig('fixture'),
-    commands: { docsRender: ['bundlekit', 'render'] },
+    commands: { docsRender: ['docskit', 'render'] },
   }
   const result = inspectAllowlistedCommand(repo, cfg, 'registryValidate')
   assert.equal(result.ok, false)
@@ -589,7 +589,7 @@ test('stack presets use toolkit CLIs (no pnpm portal:/api:/nest: wrappers)', () 
       assert.ok(Array.isArray(argv), `${name}.${key} argv`)
       assert.notEqual(argv[0], 'pnpm', `${name}.${key} must not use pnpm wrappers`)
       assert.ok(
-        ['codegenkit', 'testkit', 'bundlekit', 'node'].includes(argv[0]) ||
+        ['codegenkit', 'testkit', 'docskit', 'node'].includes(argv[0]) ||
           argv.length === 0,
         `${name}.${key}: unexpected bin ${argv[0]}`,
       )
@@ -615,7 +615,7 @@ test('shipped skill/rule route cross-repo lookups without CodeGraph ownership', 
     'utf8',
   )
   for (const text of [skill, rule]) {
-    assert.match(text, /HUBDOCS_ROOT/)
+    assert.match(text, /DOCSKIT_ROOT/)
     assert.match(text, /codegraph-<key>/)
     assert.match(text, /Platform DNA/)
     assert.match(text, /local-only/i)

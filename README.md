@@ -63,8 +63,8 @@ The package installer does not initialize an arbitrary repository. Run
   home (`--type=common,docs`).
 - FE/BE/tests installs index that repo only and are useful only for local
   tag/allowlist hints.
-- ArtifactGraph never follows `HUBDOCS_ROOT` or `CODEGENKIT_DOCS_ROOT`.
-  Codegenkit uses its docs pointer for canonical FE IR/registries; Hubdocs uses
+- ArtifactGraph never follows `DOCSKIT_ROOT` or `CODEGENKIT_DOCS_ROOT`.
+  Codegenkit uses its docs pointer for canonical FE IR/registries; Docskit uses
   its own pointer for architecture ID lookups.
 
 ---

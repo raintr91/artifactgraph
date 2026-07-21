@@ -26,13 +26,13 @@ export interface InspectCommandResult {
   knownKeys: string[]
   argv?: string[]
   cwd: string
-  executableOwner: 'product-repo' | 'codegenkit' | 'testkit' | 'bundlekit' | 'unknown'
+  executableOwner: 'product-repo' | 'codegenkit' | 'testkit' | 'docskit' | 'unknown'
   recommendation: string
 }
 
 function commandOwner(commandKey: string): InspectCommandResult['executableOwner'] {
   if (['docsRender', 'specSplit', 'specMerge', 'legacyValidate'].includes(commandKey)) {
-    return 'bundlekit'
+    return 'docskit'
   }
   if (
     ['testcaseGen', 'testcaseGenDry', 'casesRender', 'testE2e', 'e2eRegistry'].includes(

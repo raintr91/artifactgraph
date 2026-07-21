@@ -5,7 +5,7 @@
 - Run BE dry generation before write generation when both keys exist.
 - Full product registry remains in docs; ArtifactGraph does not infer or follow
   a docs checkout.
-- Architecture ID / C4 lookups go to Hubdocs (`HUBDOCS_ROOT`). Symbol /
+- Architecture ID / C4 lookups go to Docskit (`DOCSKIT_ROOT`). Symbol /
   call-graph lookups go to the target repo's `codegraph-<key>` MCP — Platform
   DNA owns that auto-wire, not ArtifactGraph.
 - Promote canonical registry changes in docs; keep only BE-local

@@ -14,7 +14,7 @@ alwaysApply: false
 
 ## Cross-repo routing
 
-- Architecture ID / C4 → Hubdocs (`HUBDOCS_ROOT`), not CodeGraph and not
+- Architecture ID / C4 → Docskit (`DOCSKIT_ROOT`), not CodeGraph and not
   ArtifactGraph.
 - IR / registry / generation → Codegenkit / Testkit pointers
   (`CODEGENKIT_DOCS_ROOT`, `TESTKIT_DOCS_ROOT`, `TESTKIT_TESTS_ROOT`).

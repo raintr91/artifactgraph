@@ -9,7 +9,7 @@ disable-model-invocation: true
 The current product repository owns `artifactgraph.json`, `registries/*.json`,
 templates, and `artifactgraph/lexicon/*.txt`. ArtifactGraph indexes those files
 and recommends product-owned allowlisted commands. It does **not** own
-architecture Markdown (Hubdocs), executable generators (Bundlekit /
+architecture Markdown (Docskit), executable generators (Docskit /
 Codegenkit / Testkit), or CodeGraph symbol indexes.
 
 ## Protocol
@@ -30,7 +30,7 @@ Codegenkit / Testkit), or CodeGraph symbol indexes.
 
 Cross-repo lookup is per-repo routing, never one giant workspace graph:
 
-- Architecture ID / C4 path → Hubdocs (`HUBDOCS_ROOT`).
+- Architecture ID / C4 path → Docskit (`DOCSKIT_ROOT`).
 - IR / registry / generation → owning kit pointers
   (`CODEGENKIT_DOCS_ROOT`, `TESTKIT_DOCS_ROOT`, `TESTKIT_TESTS_ROOT`).
 - Symbol / call-graph of repo X → that repo's `codegraph-<key>` MCP
