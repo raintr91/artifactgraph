@@ -141,6 +141,7 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
       types,
       force: has('--force'),
       writtenAgentPaths,
+      agents: result.targets,
     })
     console.log(`Initialized ${ctx.root} (types=${project.types.join(',')})`)
     for (const key of ['created', 'updated', 'skipped', 'conflicts'] as const) {

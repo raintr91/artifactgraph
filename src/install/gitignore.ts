@@ -217,7 +217,7 @@ export function desiredGitignorePatterns(input: GeneratedTargetsInput): {
   exclusive: string[]
   shared: string[]
 } {
-  const exclusive: string[] = ['.artifactgraph/']
+  const exclusive: string[] = ['.artifactgraph/', '.docskit/']
   if (input.wroteLexicon) exclusive.push('artifactgraph/')
   if (input.createdConfig) exclusive.push('artifactgraph.json')
 

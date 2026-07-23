@@ -854,6 +854,8 @@ function sanitizeConfig(
   }
 }
 
+import type { AgentId } from './agents.js'
+
 export function installProjectAssets(opts: {
   repoRoot: string
   stack: string
@@ -861,6 +863,7 @@ export function installProjectAssets(opts: {
   force?: boolean
   /** Absolute local agent config paths written by this init (local only). */
   writtenAgentPaths?: string[]
+  agents?: AgentId[]
 }): ProjectInstallResult {
   const root = path.resolve(opts.repoRoot)
   const types = normalizeInstallTypes(opts.types)
@@ -889,9 +892,35 @@ export function installProjectAssets(opts: {
     if (types.includes(type)) assets.push(...TYPE_ASSETS[type])
   }
 
+  const agentRoots = [...new Set((opts.agents || ['cursor']).map((a) => {
+    switch (a) {
+      case 'cursor': return '.cursor'
+      case 'claude': return '.claude'
+      case 'codex': return '.codex'
+      case 'opencode': return '.opencode'
+      case 'hermes': return '.hermes'
+      case 'gemini': return '.gemini'
+      case 'antigravity': return '.agents'
+      case 'kiro': return '.kiro'
+      case 'kilo': return '.kilocode'
+      default: return '.cursor'
+    }
+  }))]
+
+  const expandedAssets: Array<[string, string]> = []
+  for (const [sourceRel, destRel] of assets) {
+    if (destRel.startsWith('.cursor/')) {
+      for (const agentRoot of agentRoots) {
+        expandedAssets.push([sourceRel, destRel.replace('.cursor/', `${agentRoot}/`)])
+      }
+    } else {
+      expandedAssets.push([sourceRel, destRel])
+    }
+  }
+
   let wroteCursorHarness = false
   let wroteLexicon = false
-  for (const [sourceRel, destRel] of assets) {
+  for (const [sourceRel, destRel] of expandedAssets) {
     const source = path.join(packageRoot(), sourceRel)
     const dest = path.join(root, destRel)
     const content = readFileSync(source, 'utf8')
@@ -928,14 +957,14 @@ export function installProjectAssets(opts: {
       continue
     }
     nextFiles[destRel] = { source: sourceRel, hash: nextHash }
-    if (destRel.startsWith('.cursor/')) wroteCursorHarness = true
+    if (destRel.startsWith('.cursor/') || destRel.startsWith('.agents/') || destRel.startsWith('.gemini/') || destRel.startsWith('.claude/') || destRel.startsWith('.codex/') || destRel.startsWith('.opencode/') || destRel.startsWith('.hermes/') || destRel.startsWith('.kiro/') || destRel.startsWith('.kilocode/')) wroteCursorHarness = true
     if (destRel.startsWith('artifactgraph/')) wroteLexicon = true
   }
 
   for (const [destRel, managed] of Object.entries(previous?.files ?? {})) {
     if (!(destRel in nextFiles) && isManagedFile(managed)) {
       nextFiles[destRel] = { ...managed, stale: true }
-      if (destRel.startsWith('.cursor/')) wroteCursorHarness = true
+      if (destRel.startsWith('.cursor/') || destRel.startsWith('.agents/') || destRel.startsWith('.gemini/') || destRel.startsWith('.claude/') || destRel.startsWith('.codex/') || destRel.startsWith('.opencode/') || destRel.startsWith('.hermes/') || destRel.startsWith('.kiro/') || destRel.startsWith('.kilocode/')) wroteCursorHarness = true
       if (destRel.startsWith('artifactgraph/')) wroteLexicon = true
     }
   }
@@ -966,9 +995,9 @@ export function installProjectAssets(opts: {
     createdConfig,
     wroteCursorHarness:
       wroteCursorHarness ||
-      result.created.some((f) => f.startsWith('.cursor/')) ||
-      result.updated.some((f) => f.startsWith('.cursor/')) ||
-      result.skipped.some((f) => f.startsWith('.cursor/')),
+      result.created.some((f) => f.startsWith('.cursor/') || f.startsWith('.agents/') || f.startsWith('.gemini/') || f.startsWith('.claude/') || f.startsWith('.codex/') || f.startsWith('.opencode/') || f.startsWith('.hermes/') || f.startsWith('.kiro/') || f.startsWith('.kilocode/')) ||
+      result.updated.some((f) => f.startsWith('.cursor/') || f.startsWith('.agents/') || f.startsWith('.gemini/') || f.startsWith('.claude/') || f.startsWith('.codex/') || f.startsWith('.opencode/') || f.startsWith('.hermes/') || f.startsWith('.kiro/') || f.startsWith('.kilocode/')) ||
+      result.skipped.some((f) => f.startsWith('.cursor/') || f.startsWith('.agents/') || f.startsWith('.gemini/') || f.startsWith('.claude/') || f.startsWith('.codex/') || f.startsWith('.opencode/') || f.startsWith('.hermes/') || f.startsWith('.kiro/') || f.startsWith('.kilocode/')),
     wroteLexicon:
       wroteLexicon ||
       result.created.some((f) => f.startsWith('artifactgraph/')) ||
