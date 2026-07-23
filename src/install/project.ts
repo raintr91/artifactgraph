@@ -29,6 +29,7 @@ import {
   removeGitignoreEntries,
   type OwnedGitignoreEntry,
 } from './gitignore.js'
+import { AGENT_DIRS, type AgentId } from './agents.js'
 
 export type { OwnedGitignoreEntry } from './gitignore.js'
 
@@ -514,7 +515,10 @@ function compatibleManagedPath(source: string, destRel: string): boolean {
   const harness = /^harness\/(?:common|docs|fe|be|test)\/(skills|rules|extracts)\/(.+)$/.exec(
     source,
   )
-  if (harness) return destRel === `.cursor/${harness[1]}/${harness[2]}`
+  if (harness) {
+    const allowedDirs = Object.values(AGENT_DIRS).flat()
+    return allowedDirs.some((dir) => destRel === `${dir}/${harness[1]}/${harness[2]}`)
+  }
   const lexicon = /^lexicon\/([^/]+)$/.exec(source)
   return Boolean(lexicon && destRel === `artifactgraph/lexicon/${lexicon[1]}`)
 }
@@ -854,7 +858,7 @@ function sanitizeConfig(
   }
 }
 
-import type { AgentId } from './agents.js'
+
 
 export function installProjectAssets(opts: {
   repoRoot: string
@@ -892,20 +896,16 @@ export function installProjectAssets(opts: {
     if (types.includes(type)) assets.push(...TYPE_ASSETS[type])
   }
 
-  const agentRoots = [...new Set((opts.agents || ['cursor']).map((a) => {
-    switch (a) {
-      case 'cursor': return '.cursor'
-      case 'claude': return '.claude'
-      case 'codex': return '.codex'
-      case 'opencode': return '.opencode'
-      case 'hermes': return '.hermes'
-      case 'gemini': return '.gemini'
-      case 'antigravity': return '.agents'
-      case 'kiro': return '.kiro'
-      case 'kilo': return '.kilocode'
-      default: return '.cursor'
-    }
-  }))]
+  const agentRoots = [
+    ...new Set(
+      (opts.agents || ['cursor']).flatMap((a) => AGENT_DIRS[a] || []),
+    ),
+  ]
+
+  const isAgentHarnessPath = (f: string) => {
+    const allowedDirs = Object.values(AGENT_DIRS).flat()
+    return allowedDirs.some((dir) => f.startsWith(`${dir}/`))
+  }
 
   const expandedAssets: Array<[string, string]> = []
   for (const [sourceRel, destRel] of assets) {
@@ -946,7 +946,7 @@ export function installProjectAssets(opts: {
       ) {
         result.skipped.push(destRel)
         nextFiles[destRel] = { source: sourceRel, hash: nextHash }
-        if (destRel.startsWith('.cursor/')) wroteCursorHarness = true
+        if (isAgentHarnessPath(destRel)) wroteCursorHarness = true
         if (destRel.startsWith('artifactgraph/')) wroteLexicon = true
         continue
       }
@@ -957,14 +957,14 @@ export function installProjectAssets(opts: {
       continue
     }
     nextFiles[destRel] = { source: sourceRel, hash: nextHash }
-    if (destRel.startsWith('.cursor/') || destRel.startsWith('.agents/') || destRel.startsWith('.gemini/') || destRel.startsWith('.claude/') || destRel.startsWith('.codex/') || destRel.startsWith('.opencode/') || destRel.startsWith('.hermes/') || destRel.startsWith('.kiro/') || destRel.startsWith('.kilocode/')) wroteCursorHarness = true
+    if (isAgentHarnessPath(destRel)) wroteCursorHarness = true
     if (destRel.startsWith('artifactgraph/')) wroteLexicon = true
   }
 
   for (const [destRel, managed] of Object.entries(previous?.files ?? {})) {
     if (!(destRel in nextFiles) && isManagedFile(managed)) {
       nextFiles[destRel] = { ...managed, stale: true }
-      if (destRel.startsWith('.cursor/') || destRel.startsWith('.agents/') || destRel.startsWith('.gemini/') || destRel.startsWith('.claude/') || destRel.startsWith('.codex/') || destRel.startsWith('.opencode/') || destRel.startsWith('.hermes/') || destRel.startsWith('.kiro/') || destRel.startsWith('.kilocode/')) wroteCursorHarness = true
+      if (isAgentHarnessPath(destRel)) wroteCursorHarness = true
       if (destRel.startsWith('artifactgraph/')) wroteLexicon = true
     }
   }
@@ -992,12 +992,13 @@ export function installProjectAssets(opts: {
   const applied = applyGeneratedGitignore({
     root,
     writtenAgentPaths: opts.writtenAgentPaths,
+    targets: opts.agents,
     createdConfig,
     wroteCursorHarness:
       wroteCursorHarness ||
-      result.created.some((f) => f.startsWith('.cursor/') || f.startsWith('.agents/') || f.startsWith('.gemini/') || f.startsWith('.claude/') || f.startsWith('.codex/') || f.startsWith('.opencode/') || f.startsWith('.hermes/') || f.startsWith('.kiro/') || f.startsWith('.kilocode/')) ||
-      result.updated.some((f) => f.startsWith('.cursor/') || f.startsWith('.agents/') || f.startsWith('.gemini/') || f.startsWith('.claude/') || f.startsWith('.codex/') || f.startsWith('.opencode/') || f.startsWith('.hermes/') || f.startsWith('.kiro/') || f.startsWith('.kilocode/')) ||
-      result.skipped.some((f) => f.startsWith('.cursor/') || f.startsWith('.agents/') || f.startsWith('.gemini/') || f.startsWith('.claude/') || f.startsWith('.codex/') || f.startsWith('.opencode/') || f.startsWith('.hermes/') || f.startsWith('.kiro/') || f.startsWith('.kilocode/')),
+      result.created.some(isAgentHarnessPath) ||
+      result.updated.some(isAgentHarnessPath) ||
+      result.skipped.some(isAgentHarnessPath),
     wroteLexicon:
       wroteLexicon ||
       result.created.some((f) => f.startsWith('artifactgraph/')) ||

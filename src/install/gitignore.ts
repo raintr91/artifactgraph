@@ -8,6 +8,7 @@
 
 import { existsSync, lstatSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { AGENT_DIRS, type AgentId } from './agents.js'
 
 export interface OwnedGitignoreEntry {
   pattern: string
@@ -41,6 +42,8 @@ export interface GeneratedTargetsInput {
   wroteCursorHarness?: boolean
   /** True when lexicon assets under artifactgraph/ were installed. */
   wroteLexicon?: boolean
+  /** The target agents being installed to */
+  targets?: AgentId[]
 }
 
 const LEGACY_START = '# >>> artifactgraph generated files'
@@ -222,7 +225,14 @@ export function desiredGitignorePatterns(input: GeneratedTargetsInput): {
   if (input.createdConfig) exclusive.push('artifactgraph.json')
 
   const shared: string[] = []
-  if (input.wroteCursorHarness) shared.push('.cursor/')
+  if (input.wroteCursorHarness) {
+    const agentDirList =
+      input.targets?.flatMap((target) => AGENT_DIRS[target] || []) || []
+    const dirs = agentDirList.length > 0 ? Array.from(new Set(agentDirList)) : ['.cursor']
+    for (const dir of dirs) {
+      shared.push(`${dir}/`)
+    }
+  }
 
   const root = path.resolve(input.root)
   for (const absolute of input.writtenAgentPaths ?? []) {
