@@ -11,8 +11,8 @@ disable-model-invocation: true
 Member annotation sau grill A/B/C — **không** bulk `/spec` / `/dev-grill-docs`.
 
 Hub policy (docs hub): `platform/toolchain/PLATFORM-MARK.md` (alias: docs-mark).  
-Technical marks SSOT on the docs hub: `product/shared/integrations/*`,
-`product/shared/data-model/derived-data.md`.
+Technical marks SSOT on the docs hub: `product/surfaces/common/integrations/*`,
+`product/surfaces/common/data-model/derived-data.md`.
 
 ## Accelerators (optional)
 

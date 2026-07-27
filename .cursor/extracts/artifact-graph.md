@@ -6,7 +6,7 @@ Path root: `base-docs Code / `--id``
 
 | Phase | Primary artifacts | Do not load |
 |-------|-------------------|-------------|
-| legacy-spec | write `base-docs/product/legacy-dynamics/…/_legacy.dynamics.yaml`, Code `*.bundle.yaml` | gen, ir/spec, codegen/* |
+| legacy-spec | write `base-docs/product/surfaces/**/code/**`, Code `*.bundle.yaml` | gen, ir/spec, codegen/* |
 | /spec | `*.bundle.yaml` (spec + design), template | legacy/* |
 | bqa-grill | `ir/design.yaml`, `ir/legacy.yaml` ui slice, common bundles, `review` | ir/spec gen fields, legacy source |
 | dev-grill | `ir/design`, `ir/legacy`, write `gen` / ir/spec | legacy source, models/ |

@@ -23,7 +23,7 @@
 | **e2e** | `testcaseGenDry`, `testcaseGen` | `e2e-test` registry (`{spec}` = testcase path) |
 | **lifecycle** | `lifecycleSync` | `page-lifecycle` registry |
 
-Cloud **không** viết registry. Promote = docs `DESIGN-REGISTRY-PROMOTION` / `UNIT-REGISTRY-PROMOTION` / e2e docs + skill `/platform-mark`.
+Cloud **không** viết registry. Promote = docs `DESIGN-REGISTRY-PROMOTION` / `UNIT-REGISTRY-PROMOTION` / e2e docs + skill `/docs-mark`.
 
 ## Shared protocol (every artifact skill)
 
@@ -81,7 +81,7 @@ Cloud **không** viết registry. Promote = docs `DESIGN-REGISTRY-PROMOTION` / `
 - Local: `testcaseGen` / `testcaseGenDry` (`spec` arg = testcase yaml path).
 - Cloud: new matcher/bundle only → promote e2e registry.
 
-### `/platform-mark`
+### `/docs-mark`
 
 - Local: after B — tags + `remember` + `registryValidate` / `commonRegistry`.
 - **Write** registry JSON in product repo; then `rebuild`.

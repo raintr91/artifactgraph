@@ -132,7 +132,7 @@ export function registerTools(server: McpServer): void {
     'artifactgraph_analyze',
     'Local preflight: analyze ir/spec.yaml and/or bullets → gaps, draft tags, cloudPromptSlice',
     {
-      specPath: z.string().optional().describe('Path to ir/spec.yaml (relative to repo or absolute)'),
+      specPath: z.string().optional().describe('Path to ir/spec.yaml, e.g. .../modules/CMP-*/<function-slug>/code/{W-*|API-*}/ir/spec.yaml'),
       bullets: z.string().optional().describe('Free-text bullets when IR does not exist yet'),
     },
     async ({ specPath, bullets }) => {
@@ -189,7 +189,7 @@ export function registerTools(server: McpServer): void {
       moduleDir: z
         .string()
         .optional()
-        .describe('Module path with bundles / _legacy.trace.yaml (relative to repo)'),
+        .describe('CMP module root, e.g. product/surfaces/admin-web/modules/CMP-01-auth/'),
       findingsPath: z.string().optional().describe('YAML/JSON with parityFindings[] from cloud'),
       findingsJson: z.string().optional().describe('Inline JSON: { parityFindings: [...] }'),
     },

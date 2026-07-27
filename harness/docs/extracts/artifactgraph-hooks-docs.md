@@ -1,6 +1,7 @@
 # ArtifactGraph — docs hooks
 
-- Treat this docs repo as the canonical full registry/parity hub.
+- Treat this docs repo as the canonical full registry/parity hub (`product/surfaces/...`).
+- Use path hints from `registries/docs-index.json` when available.
 - Use local vocabulary suggestions for specs and documentation marks.
 - Run docs/spec commands only when the current repo explicitly allowlists them.
 - For legacy archaeology, run parity checks and resolve parity drift with member A/B/C.

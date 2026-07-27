@@ -6,3 +6,5 @@
   scope. Warn only; do not turn it into a confirmation gate.
 - Run `artifactgraph_parity_check` locally and send only unresolved structured
   findings in a cloud slice.
+
+> **Glossary note:** `context-orphan` ≠ `/context` doc layer; parity `surfaces[]` ≠ Surfaces navigation layer.

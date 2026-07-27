@@ -1,5 +1,10 @@
 # Parity + context-orphan (legacy)
 
+## Glossary
+- `context-orphan` ≠ `/context` doc layer. `context-orphan` refers to data-scope mismatch.
+- parity `surfaces[]` ≠ Surfaces navigation layer. Parity `surfaces[]` refers to client surfaces in code.
+
+
 ## Field / rule / label drift → `parity-drift` (CONFIRM A/B/C)
 
 create≠edit validate, labels, empty policies, FE≠BE — member must pick canon.

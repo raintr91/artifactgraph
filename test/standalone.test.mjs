@@ -37,6 +37,7 @@ import { IndexStore } from '../dist/db/index-store.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { inspectAllowlistedCommand } from '../dist/gen/run-command.js'
+import { parityCheck } from '../dist/analyze/parity-check.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const pkgVersion = JSON.parse(
@@ -623,4 +624,27 @@ test('shipped skill/rule route cross-repo lookups without CodeGraph ownership', 
   }
   assert.match(skill, /write cross-repo MCP entries/)
   assert.match(skill, /does not follow those pointers/)
+})
+
+test('parityCheck discovers fields under product/surfaces/<surface>/modules/CMP-*/code/W-*/ir/*.yaml', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-parity-fixture-'))
+  const moduleDir = 'product/surfaces/admin-web/modules/CMP-01-auth'
+  const irDir = path.join(repo, moduleDir, 'checkout/code/W-01-web/ir')
+  mkdirSync(irDir, { recursive: true })
+  writeFileSync(
+    path.join(irDir, 'spec.yaml'),
+    'id: W-01-web\nfields:\n  - name: status\n    type: string\n    empty: omit\n',
+  )
+  const beIrDir = path.join(repo, moduleDir, 'checkout/code/API-01-web/ir')
+  mkdirSync(beIrDir, { recursive: true })
+  writeFileSync(
+    path.join(beIrDir, 'spec.yaml'),
+    'id: API-01-web\nfields:\n  - name: status\n    type: string\n    empty: null\n',
+  )
+  
+  const result = parityCheck({ repoRoot: repo, moduleDir })
+  assert.equal(result.gaps.length, 1)
+  assert.equal(result.gaps[0].kind, 'parity-drift')
+  assert.match(result.gaps[0].message, /status/)
+  assert.match(result.gaps[0].message, /W-01-web/)
 })

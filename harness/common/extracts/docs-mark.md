@@ -45,7 +45,7 @@ marks:
 
 ## Workflow (each `/docs-mark` session)
 
-1. Resolve scope: feature slug, `ir/spec.yaml`, optional code paths
+1. Resolve scope: function id `W-*`/`API-*` under `product/surfaces/.../modules/CMP-*/code/`, `ir/spec.yaml`, optional code paths
 2. Read `tags:`, `marks[]`, `technicalMarks[]`, both registries
 3. Apply member intent — one concern per mark
 4. Update spec YAML (`tags:` and/or `marks[]`)

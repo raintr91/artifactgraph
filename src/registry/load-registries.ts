@@ -1,7 +1,7 @@
 /**
  * Load product registries into memory (+ optional IndexStore upsert).
  *
- * Registries live under product `registries/*.json` after the global layout migrate.
+ * Registries live under product `registries/*.json`.
  */
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -18,6 +18,8 @@ export interface LoadedRegistries {
   unitPatterns: string[]
   e2eBundles: string[]
   aliasToCanonical: Record<string, string>
+  // W-*/API-*/CMP-* -> path hints
+  codeIds: Record<string, string>
 }
 
 /** Read all configured registry files from a product repo. */
@@ -28,6 +30,7 @@ export function loadRegistries(repoRoot: string, cfg: ArtifactgraphConfig): Load
   const unitPatterns: string[] = []
   const e2eBundles: string[] = []
   const aliasToCanonical: Record<string, string> = {}
+  const codeIds: Record<string, string> = {}
 
   for (const rel of cfg.registries ?? []) {
     const abs = path.join(repoRoot, rel)
@@ -62,9 +65,13 @@ export function loadRegistries(repoRoot: string, cfg: ArtifactgraphConfig): Load
       const bundles = (data.bundles ?? {}) as Record<string, unknown>
       e2eBundles.push(...Object.keys(bundles))
     }
+    if (base.includes('docs-index')) {
+      const ids = (data.codeIds ?? {}) as Record<string, string>
+      Object.assign(codeIds, ids)
+    }
   }
 
-  return { byFile, designShells, commonIds, unitPatterns, e2eBundles, aliasToCanonical }
+  return { byFile, designShells, commonIds, unitPatterns, e2eBundles, aliasToCanonical, codeIds }
 }
 
 /** Counts returned to MCP status / rebuild (DSL index summary). */
@@ -76,6 +83,7 @@ export function registryIndexSummary(loaded: LoadedRegistries): Record<string, n
     unitPatterns: loaded.unitPatterns.length,
     e2eBundles: loaded.e2eBundles.length,
     aliases: Object.keys(loaded.aliasToCanonical).length,
+    codeIds: Object.keys(loaded.codeIds).length,
   }
 }
 
@@ -107,6 +115,10 @@ export function indexRegistries(store: IndexStore, loaded: LoadedRegistries): vo
   store.clearRegistry('alias')
   for (const [alias, canonical] of Object.entries(loaded.aliasToCanonical)) {
     store.upsertRegistryEntry('alias', alias, { canonical })
+  }
+  store.clearRegistry('code.ids')
+  for (const [id, pathHint] of Object.entries(loaded.codeIds)) {
+    store.upsertRegistryEntry('code.ids', id, { pathHint })
   }
   store.setMeta('rebuiltAt', new Date().toISOString())
   store.setMeta('indexSummary', JSON.stringify(registryIndexSummary(loaded)))

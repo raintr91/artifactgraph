@@ -214,7 +214,7 @@ function slug(s: string): string {
 function listYamlFiles(dir: string): string[] {
   const out: string[] = []
   const walk = (d: string, depth: number) => {
-    if (depth > 4) return
+    if (depth > 6) return
     for (const name of readdirSync(d)) {
       if (name.startsWith('.') || name === 'node_modules' || name === 'md') continue
       const p = path.join(d, name)

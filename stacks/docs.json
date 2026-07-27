@@ -1,0 +1,21 @@
+{
+  "stack": "docs",
+  "mode": "brownfield",
+  "commands": {},
+  "registries": [
+    "registries/common.registry.json",
+    "registries/design.registry.json",
+    "registries/unit-test.registry.json",
+    "registries/e2e-test.registry.json",
+    "registries/docs-index.json"
+  ],
+  "gapSources": [
+    "product/surfaces/**/code/**/generated/HANDOFF.md"
+  ],
+  "specRoots": [
+    "product/surfaces/**/code/**"
+  ],
+  "vocabularies": {
+    "registryTags": "artifactgraph/lexicon/registry-tags.en.txt"
+  }
+}
