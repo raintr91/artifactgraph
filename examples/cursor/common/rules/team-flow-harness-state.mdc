@@ -1,0 +1,12 @@
+---
+description: Harness state files — progress handoff between sessions
+globs: .harness/**/*
+alwaysApply: false
+---
+
+# Harness State
+
+- `feature_list.json` — scope, không tự đánh done khi chưa verify
+- `progress.md` — handoff session tiếp theo
+- `registries/page-lifecycle.registry.json` + `base-docs/platform/toolchain/PAGE-LIFECYCLE.md` — stage cao nhất từng route; `portal:gen` / `portal:remove` / `portal:lifecycle sync` tự cập nhật
+- Khi command public cập nhật phase, ghi rõ: command, file đã đổi, verify đã chạy/chưa chạy, blocker còn lại.

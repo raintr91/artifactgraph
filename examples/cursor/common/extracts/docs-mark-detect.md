@@ -34,3 +34,15 @@ C) Defer — ghi openQuestions, không block gate
 ```
 
 If member chooses **B** → run `/docs-mark` in the same session.
+
+## Grill spec signals — API reuse (Section L hashtags)
+
+| Signal | Suspected kind | Ask member |
+|--------|----------------|------------|
+| `artifactgraph_api_reuse_check` finds existing route for same path+method | `#reuse-api` | Agent adds `#reuse-api` to spec (no gate) |
+| Endpoint calls payment/webhook/OAuth/SMS/MES/ERP system | `#call-external` | A local B `#call-external` C defer |
+| 2 bounded-context entities in single synchronous flow | `#cross-service` / `#cross-entity-service` | A single service B cross-service C split APIs |
+| Response field không có trên `ir/spec.yaml` entities | `#derived-data` | A add to entity B `#derived-data` C remove |
+| `DUPLICATE_API_ROUTE` gap in grill_check output | add `#reuse-api` | Agent adds `#reuse-api` to current spec |
+
+**Rule:** If 2 specs define the exact same URI path+method without `#reuse-api`, ArtifactGraph emits `DUPLICATE_API_ROUTE` gap (`severity: warn`, `draftTags: ['#reuse-api']`). Agent adds the tag to resolve — no member gate needed.

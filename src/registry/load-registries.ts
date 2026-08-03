@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { ArtifactgraphConfig } from '../types.js'
 import type { IndexStore } from '../db/index-store.js'
+import { indexApiRoutes } from '../analyze/api-routes.js'
 
 export interface LoadedRegistries {
   /** basename → parsed JSON */
@@ -75,7 +76,7 @@ export function loadRegistries(repoRoot: string, cfg: ArtifactgraphConfig): Load
 }
 
 /** Counts returned to MCP status / rebuild (DSL index summary). */
-export function registryIndexSummary(loaded: LoadedRegistries): Record<string, number> {
+export function registryIndexSummary(loaded: LoadedRegistries, apiRoutesCount?: number): Record<string, number> {
   return {
     files: Object.keys(loaded.byFile).length,
     designShells: loaded.designShells.length,
@@ -84,6 +85,7 @@ export function registryIndexSummary(loaded: LoadedRegistries): Record<string, n
     e2eBundles: loaded.e2eBundles.length,
     aliases: Object.keys(loaded.aliasToCanonical).length,
     codeIds: Object.keys(loaded.codeIds).length,
+    apiRoutes: apiRoutesCount ?? 0,
   }
 }
 
@@ -91,7 +93,7 @@ export function registryIndexSummary(loaded: LoadedRegistries): Record<string, n
  * Push registry keys into SQLite for later retrieve.
  * Index only — product `registries/*.json` remain SSOT (never written by this MCP).
  */
-export function indexRegistries(store: IndexStore, loaded: LoadedRegistries): void {
+export function indexRegistries(store: IndexStore, loaded: LoadedRegistries, repoRoot?: string, cfg?: ArtifactgraphConfig): void {
   for (const [file, data] of Object.entries(loaded.byFile)) {
     store.clearRegistry(file)
     store.upsertRegistryEntry(file, '_root', data)
@@ -120,6 +122,10 @@ export function indexRegistries(store: IndexStore, loaded: LoadedRegistries): vo
   for (const [id, pathHint] of Object.entries(loaded.codeIds)) {
     store.upsertRegistryEntry('code.ids', id, { pathHint })
   }
+  // Index API routes from OpenAPI / backend-spec YAML files
+  if (repoRoot && cfg) {
+    indexApiRoutes(store, repoRoot, cfg)
+  }
   store.setMeta('rebuiltAt', new Date().toISOString())
-  store.setMeta('indexSummary', JSON.stringify(registryIndexSummary(loaded)))
+  store.setMeta('indexSummary', JSON.stringify(registryIndexSummary(loaded, repoRoot && cfg ? store.countApiRoutes() : 0)))
 }

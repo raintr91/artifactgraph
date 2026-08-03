@@ -9,7 +9,7 @@
  */
 
 import { createRequire } from 'node:module'
-import { lstatSync, realpathSync, rmSync } from 'node:fs'
+import { lstatSync, realpathSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { detectStack, packageRoot } from './config/platform-repos.js'
@@ -158,7 +158,15 @@ async function runInitAgents(opts: { deprecatedAlias?: boolean } = {}): Promise<
         'note: non-docs ArtifactGraph indexes this repo only; use CODEGENKIT_DOCS_ROOT/DOCSKIT_ROOT to reach the docs registry hub',
       )
     }
-    console.log('Restart agent(s), then run artifactgraph rebuild')
+    
+    // Auto-inject package.json script
+    injectPackageJsonScript(ctx.root)
+
+    // Auto-rebuild the index.db
+    console.log('\nAuto-building index.db from registries...')
+    performRebuild(ctx.root, ctx.id)
+
+    console.log('\nRestart agent(s) to load the new config and index.')
   } catch (err) {
     console.error(err instanceof Error ? err.message : err)
     process.exit(1)
@@ -525,25 +533,7 @@ async function main(): Promise<void> {
   }
 
   if (cmd === 'rebuild') {
-    const cfg = requireRepoConfig(ctx.root)
-    const store = new IndexStore(ctx.root)
-    let summary: Record<string, number>
-    try {
-      summary = store.transaction(() => {
-        const loaded = loadRegistries(ctx.root, cfg)
-        indexRegistries(store, loaded)
-        const lexicon = indexLexicons(store, ctx.root, cfg)
-        const next = { ...registryIndexSummary(loaded), ...lexicon }
-        store.setMeta('indexSummary', JSON.stringify(next))
-        return next
-      })
-    } finally {
-      store.close()
-    }
-    console.log(
-      `Rebuilt index for ${ctx.id}: files=${summary.files} shells=${summary.designShells} common=${summary.commonIds} unit=${summary.unitPatterns} e2e=${summary.e2eBundles} lexiconHints=${summary.registryTagHints ?? 0} testTypes=${summary.testTypes ?? 0}`,
-    )
-    console.log(JSON.stringify(pathResolutionSummary(ctx.root, cfg), null, 2))
+    performRebuild(ctx.root, ctx.id)
     return
   }
 
@@ -666,3 +656,44 @@ main().catch((err) => {
   console.error(err)
   process.exit(1)
 })
+
+function performRebuild(repoRoot: string, repoId: string): void {
+  const cfg = requireRepoConfig(repoRoot)
+  const store = new IndexStore(repoRoot)
+  let summary: Record<string, number>
+  try {
+    summary = store.transaction(() => {
+      const loaded = loadRegistries(repoRoot, cfg)
+      indexRegistries(store, loaded)
+      const lexicon = indexLexicons(store, repoRoot, cfg)
+      const next = { ...registryIndexSummary(loaded), ...lexicon }
+      store.setMeta('indexSummary', JSON.stringify(next))
+      return next
+    })
+  } finally {
+    store.close()
+  }
+  console.log(
+    `Rebuilt index for ${repoId}: files=${summary.files} shells=${summary.designShells} common=${summary.commonIds} unit=${summary.unitPatterns} e2e=${summary.e2eBundles} lexiconHints=${summary.registryTagHints ?? 0} testTypes=${summary.testTypes ?? 0}`,
+  )
+  console.log(JSON.stringify(pathResolutionSummary(repoRoot, cfg), null, 2))
+}
+
+function injectPackageJsonScript(repoRoot: string): void {
+  const pkgPath = path.join(repoRoot, 'package.json')
+  if (!existsSync(pkgPath)) return
+
+  try {
+    const raw = readFileSync(pkgPath, 'utf8')
+    const pkg = JSON.parse(raw) as { scripts?: Record<string, string> }
+    
+    if (!pkg.scripts) pkg.scripts = {}
+    if (!pkg.scripts['artifactgraph:rebuild']) {
+      pkg.scripts['artifactgraph:rebuild'] = 'artifactgraph rebuild'
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8')
+      console.log('  added script: "artifactgraph:rebuild" to package.json (run via `pnpm artifactgraph:rebuild`)')
+    }
+  } catch (error) {
+    console.log(`  warning: failed to inject script into package.json (${error instanceof Error ? error.message : String(error)})`)
+  }
+}

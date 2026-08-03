@@ -1,0 +1,24 @@
+---
+description: Platform — ~200 lines/file, ~20 lines/function; split when exceeded
+globs: "{pages,components,composables,services,stores,models,validations,tests}/**/*.{vue,ts}"
+alwaysApply: false
+---
+
+# Code Size
+
+Soft limits — split in the same PR when exceeded.
+
+| Vượt ~200 dòng/file | Tách | Gợi ý Tag DSL (`/docs-mark`) |
+|---------------------|------|------------------------------|
+| Page `.vue` | Composable + sub-component | `#needs-component: sub-{name}:MoXxx` hoặc `#common-ui` |
+| Composable | `useXxxForm`, `useXxxList`, … | `#common-ui` / `#needs-ui` |
+| Service / store | File theo aggregate; action phức tạp → service | `#cross-service` / `#cross-entity-service` / `#needs-service` |
+| E2E spec | Page Object + helper | `#e2e-test` bundle split |
+
+| Vượt ~20 dòng/function | Tách | Gợi ý Tag DSL (`/docs-mark`) |
+|------------------------|------|------------------------------|
+| Submit handler | `buildPayload`, `validateBeforeSubmit`, `handleApiError` | `#needs-service` / local helper |
+| Map/transform | Pure helpers / computed | `#derived-data` |
+
+No padding files with blank lines. Component split: `platform-component-split.mdc`.
+Khi file/function chạm ngưỡng vượt giới hạn, AI Agent cần chủ động đề xuất gán tag tương ứng (thông qua `/docs-mark`) và cập nhật registry (`registries/design.registry.json` hoặc `registries/common.registry.json`) để tái sử dụng sau này.

@@ -154,8 +154,32 @@ const COMMON_ASSETS: Array<[string, string]> = [
   ],
   ['harness/common/rules/artifactgraph.mdc', '.cursor/rules/artifactgraph.mdc'],
   [
+    'harness/common/rules/team-flow-harness-state.mdc',
+    '.cursor/rules/team-flow-harness-state.mdc',
+  ],
+  [
+    'harness/common/rules/platform-code-size.mdc',
+    '.cursor/rules/platform-code-size.mdc',
+  ],
+  [
     'harness/common/extracts/artifactgraph-hooks-core.md',
     '.cursor/extracts/artifactgraph-hooks-core.md',
+  ],
+  [
+    'harness/common/extracts/artifactgraph-phase-hooks.md',
+    '.cursor/extracts/artifactgraph-phase-hooks.md',
+  ],
+  [
+    'harness/common/extracts/core/agent-discipline.md',
+    '.cursor/extracts/core/agent-discipline.md',
+  ],
+  [
+    'harness/common/extracts/artifact-graph.md',
+    '.cursor/extracts/artifact-graph.md',
+  ],
+  [
+    'harness/common/extracts/extract-registry.json',
+    '.cursor/extracts/extract-registry.json',
   ],
   [
     'harness/common/extracts/docs-mark.md',
@@ -664,6 +688,12 @@ export function uninstallProjectAssets(opts: {
   }
 
   for (const [destRel, managed] of Object.entries(manifest.files)) {
+    // Keep lexicon and config in the git repo even after deinit
+    if (destRel.startsWith('artifactgraph/lexicon/')) {
+      result.preservedUnsafe.push(destRel)
+      continue
+    }
+
     if (!isManagedFile(managed) || !compatibleManagedPath(managed.source, destRel)) {
       result.preservedUnsafe.push(destRel)
       continue
@@ -695,15 +725,19 @@ export function uninstallProjectAssets(opts: {
 
   const ignorePath = path.join(root, '.artifactgraph', '.gitignore')
   if (existsSync(ignorePath)) {
-    const expected = '*\n!.gitignore\n!install-manifest.json\n'
-    if (readFileSync(ignorePath, 'utf8') === expected) {
-      result.wouldDelete.push('.artifactgraph/.gitignore')
-      if (opts.yes) {
-        unlinkSync(ignorePath)
-        result.deleted.push('.artifactgraph/.gitignore')
-      }
-    } else {
-      result.preservedModified.push('.artifactgraph/.gitignore')
+    result.wouldDelete.push('.artifactgraph/.gitignore')
+    if (opts.yes) {
+      unlinkSync(ignorePath)
+      result.deleted.push('.artifactgraph/.gitignore')
+    }
+  }
+
+  const dbPath = path.join(root, '.artifactgraph', 'index.db')
+  if (existsSync(dbPath)) {
+    result.wouldDelete.push('.artifactgraph/index.db')
+    if (opts.yes) {
+      unlinkSync(dbPath)
+      result.deleted.push('.artifactgraph/index.db')
     }
   }
 
@@ -744,6 +778,21 @@ export function uninstallProjectAssets(opts: {
     if (opts.yes) {
       unlinkSync(configPath)
       result.deleted.push('artifactgraph.json')
+    }
+  }
+
+  const pkgPath = path.join(root, 'package.json')
+  if (existsSync(pkgPath) && opts.yes) {
+    try {
+      const raw = readFileSync(pkgPath, 'utf8')
+      const pkg = JSON.parse(raw) as { scripts?: Record<string, string> }
+      if (pkg.scripts && pkg.scripts['artifactgraph:rebuild']) {
+        delete pkg.scripts['artifactgraph:rebuild']
+        writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8')
+        result.deleted.push('package.json script: artifactgraph:rebuild')
+      }
+    } catch {
+      // Ignore cleanup errors
     }
   }
 

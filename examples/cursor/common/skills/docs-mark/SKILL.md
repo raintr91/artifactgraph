@@ -17,8 +17,10 @@ Technical marks SSOT on the docs hub: `product/surfaces/common/integrations/*`,
 ## Accelerators (optional)
 
 When ArtifactGraph tools are available: `artifactgraph_analyze`,
-`artifactgraph_suggest`, `artifactgraph_remember`,
-`artifactgraph_allowlist_check`, `artifactgraph_recommend_command`.  
+`artifactgraph_suggest_tags`, `artifactgraph_remember`,
+`artifactgraph_allowlist_check`, `artifactgraph_recommend_command`,
+`artifactgraph_api_reuse_check` (confirm route reuse before applying `#reuse-api`),
+`artifactgraph_grill_check` (re-scan for `duplicate-api-route` / missing tags after mark).  
 Missing AG tools → continue with local registry/spec edits; do not invent shell
 fallbacks.
 

@@ -16,6 +16,11 @@
     "artifactgraph": [
       ".cursor/extracts/core/agent-discipline.md",
       ".cursor/extracts/artifactgraph-hooks-core.md"
+    ],
+    "docs-mark": [
+      ".cursor/extracts/core/agent-discipline.md",
+      ".cursor/extracts/docs-mark.md",
+      ".cursor/extracts/docs-mark-detect.md"
     ]
   }
 }

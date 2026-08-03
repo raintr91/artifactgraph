@@ -16,6 +16,14 @@ import path from 'node:path'
 import { INDEX_DIR } from '../config/load-config.js'
 import type { Gap } from '../types.js'
 
+export interface ApiRouteRow {
+  route_path: string
+  method: string
+  action: string
+  source_file: string
+  surface: string
+}
+
 export class IndexStore {
   private db: DatabaseSync
 
@@ -55,6 +63,16 @@ export class IndexStore {
         payload TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS api_route (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        route_path TEXT NOT NULL,
+        method TEXT NOT NULL,
+        action TEXT NOT NULL DEFAULT '',
+        source_file TEXT NOT NULL,
+        surface TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_api_route_path ON api_route(route_path);
     `)
   }
 
@@ -146,5 +164,67 @@ export class IndexStore {
 
   close(): void {
     this.db.close()
+  }
+
+  // ---------------------------------------------------------------------------
+  // API Route index
+  // ---------------------------------------------------------------------------
+
+  /** Replace all API routes (call before re-indexing). */
+  clearApiRoutes(): void {
+    this.db.exec('DELETE FROM api_route')
+  }
+
+  /** Upsert one API route row (path+method = logical key; duplicates are kept for cross-file comparison). */
+  insertApiRoute(entry: ApiRouteRow): void {
+    this.db
+      .prepare(
+        `INSERT INTO api_route(route_path, method, action, source_file, surface, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        entry.route_path,
+        entry.method.toUpperCase(),
+        entry.action,
+        entry.source_file,
+        entry.surface,
+        new Date().toISOString(),
+      )
+  }
+
+  /** Find routes by path prefix/exact and optional method filter. */
+  findApiRoutes(pathPattern: string, method?: string): ApiRouteRow[] {
+    const isPrefix = pathPattern.endsWith('%')
+    if (method) {
+      const rows = this.db
+        .prepare(
+          isPrefix
+            ? `SELECT route_path, method, action, source_file, surface FROM api_route WHERE route_path LIKE ? AND method = ?`
+            : `SELECT route_path, method, action, source_file, surface FROM api_route WHERE route_path = ? AND method = ?`,
+        )
+        .all(pathPattern, method.toUpperCase()) as unknown as ApiRouteRow[]
+      return rows
+    }
+    const rows = this.db
+      .prepare(
+        isPrefix
+          ? `SELECT route_path, method, action, source_file, surface FROM api_route WHERE route_path LIKE ?`
+          : `SELECT route_path, method, action, source_file, surface FROM api_route WHERE route_path = ?`,
+      )
+      .all(pathPattern) as unknown as ApiRouteRow[]
+    return rows
+  }
+
+  /** Load all indexed routes (for duplicate detection). */
+  listAllApiRoutes(): ApiRouteRow[] {
+    return this.db
+      .prepare('SELECT route_path, method, action, source_file, surface FROM api_route ORDER BY route_path, method')
+      .all() as unknown as ApiRouteRow[]
+  }
+
+  /** Count of indexed API routes (for rebuild summary). */
+  countApiRoutes(): number {
+    const row = this.db.prepare('SELECT COUNT(*) as n FROM api_route').get() as { n: number }
+    return row.n
   }
 }
