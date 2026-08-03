@@ -1,6 +1,6 @@
 {
   "name": "@platform/artifactgraph",
-  "version": "2.2.3",
+  "version": "2.2.5",
   "description": "Standalone local MCP for artifact registries, gaps, tag suggestions, and allowlisted codegen",
   "type": "module",
   "main": "./dist/index.js",

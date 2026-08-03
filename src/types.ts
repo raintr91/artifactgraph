@@ -28,6 +28,11 @@ export type GapKind =
    * Screen shows hotel+rooms; btn (any kind) exports/sends/processes order data → warn.
    */
   | 'context-orphan'
+  /**
+   * Duplicate URI path across specs without #reuse-api — structural conflict before merging.
+   * Rule: if 2 specs define the exact same URI+method without #reuse-api → blocking warning.
+   */
+  | 'duplicate-api-route'
 
 export interface Gap {
   kind: GapKind
@@ -162,6 +167,12 @@ export interface ArtifactgraphConfig {
   registries: string[]
   gapSources?: string[]
   specRoots?: string[]
+  /**
+   * Glob patterns for OpenAPI / backend-spec YAML files to index as API routes.
+   * Defaults: derived from specRoots by matching **\/{01-backend-spec,02-openapi}.yaml.
+   * Example: ["product/surfaces/**\/code\/**\/01-backend-spec.yaml"]
+   */
+  apiSpecRoots?: string[]
   /** @deprecated Standalone runtime ignores external hubs. */
   hubs?: ArtifactgraphHubs
   /** Lexicon file paths for suggest_tags / draftTags (local index). */

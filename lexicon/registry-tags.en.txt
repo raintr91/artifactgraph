@@ -147,3 +147,21 @@ Domain Workflow / Event Flow / Command Flow
 #process: domain-flow
 #process: event-flow
 #process: command-flow
+
+================================================================================
+L. API Reuse / Integration markers
+================================================================================
+Hashtags enforced by ArtifactGraph duplicate-route detection and Docskit grill rules.
+
+#reuse-api        Reused endpoint from common/sibling module — skip duplicate spec gen
+#call-external    Third-party integration call (OAuth, SMS, Payment, Webhook, MES/ERP)
+#cross-service    Multi-aggregate synchronous internal orchestration (single bounded context)
+#cross-entity-service  Multi-entity cross-aggregate orchestration (alias cross-service)
+#derived-data     Internal computed/derived backend data field (not stored, not on entity)
+#needs-component  UI component missing in design registry or requiring template .hbs
+
+#reuse-api
+#call-external
+#cross-service
+#cross-entity-service
+#derived-data

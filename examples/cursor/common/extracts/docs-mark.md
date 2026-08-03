@@ -16,7 +16,9 @@ Grill lanes ask first; member confirms → apply mark in same session.
 | needs-common | `#needs-common:{id}` | `marks[]` — registry `status: planned` |
 | call-external | `#call-external` | `technicalMarks[]` + `externalCalls[]` |
 | cross-entity-service | `#cross-entity-service` | `technicalMarks[]` + `services[]` |
+| cross-service | `#cross-service` | `technicalMarks[]` + `services[]` (alias for cross-entity-service) |
 | derived-data | `#derived-data` | `technicalMarks[]` + `derivedData` |
+| reuse-api | `#reuse-api` | `tags:` — signals route reuse from common/sibling; suppresses DUPLICATE_API_ROUTE |
 
 ## Mark kinds — UI (`registries/design.registry.json`)
 

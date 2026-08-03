@@ -34,6 +34,7 @@ import {
   projectInstallStatus,
   type InstallType,
 } from '../install/project.js'
+import { findApiRoutes } from '../analyze/api-routes.js'
 
 function text(data: unknown) {
   return {
@@ -100,9 +101,10 @@ export function registerTools(server: McpServer): void {
       try {
         const rebuilt = store.transaction(() => {
           const nextLoaded = loadRegistries(project.root, cfg)
-          indexRegistries(store, nextLoaded)
+          indexRegistries(store, nextLoaded, project.root, cfg)
           const lexicon = indexLexicons(store, project.root, cfg)
-          const nextSummary = { ...registryIndexSummary(nextLoaded), ...lexicon }
+          const apiRoutesCount = store.countApiRoutes()
+          const nextSummary = { ...registryIndexSummary(nextLoaded, apiRoutesCount), ...lexicon }
           store.setMeta('indexSummary', JSON.stringify(nextSummary))
           store.setMeta('rebuiltAt', new Date().toISOString())
           return { loaded: nextLoaded, summary: nextSummary }
@@ -327,6 +329,43 @@ export function registerTools(server: McpServer): void {
         askUser: full.askUser,
         draftTags: full.draftTags,
         cloudPromptSlice: full.cloudPromptSlice,
+      })
+    },
+  )
+
+  /**
+   * API Reuse check — query indexed routes before creating a new spec.
+   * Returns AnalyzeResult-compatible output + matches[] for easy pipe with other tools.
+   * Run `artifactgraph_rebuild` first for a fresh index; tool falls back to on-demand scan.
+   */
+  server.tool(
+    'artifactgraph_api_reuse_check',
+    'Check if an API path/entity action already exists in product surfaces before creating a new spec. Returns matches[] and draftTags with #reuse-api when found.',
+    {
+      path: z.string().describe('API URI path to check, e.g. /api/v1/users/{id}/update'),
+      method: z.string().optional().describe('HTTP method filter: GET|POST|PUT|PATCH|DELETE'),
+      entity: z.string().optional().describe('Entity name for fuzzy match when path unknown, e.g. user, hotel'),
+    },
+    async ({ path: apiPath, method, entity }) => {
+      const project = currentProject()
+      const cfg = loadEffectiveRepoConfig(project.root)
+      const store = new IndexStore(project.root)
+      const matches = findApiRoutes(store, project.root, cfg, { path: apiPath, method, entity })
+      store.close()
+
+      const found = matches.length > 0
+      // When route already exists: suggest #reuse-api so agent can add it to the spec.
+      // No A/B/C gate — the tag is the resolution.
+      return text({
+        found,
+        matches,
+        draftTags: found ? ['#reuse-api'] : [],
+        suggestion: found
+          ? `Route already exists in ${matches.map((m) => m.sourceFile).join(', ')} — add #reuse-api to this spec`
+          : `NOT_FOUND: safe to create new spec`,
+        cloudPromptSlice: found
+          ? `## artifactgraph_api_reuse_check\npath: ${apiPath}\nmatches found: ${matches.length}\n${matches.map((m) => `- ${m.method} ${m.path} → ${m.sourceFile}`).join('\n')}\n→ add #reuse-api to current spec`
+          : `## artifactgraph_api_reuse_check\npath: ${apiPath}\nNOT_FOUND: safe to create new spec`,
       })
     },
   )
