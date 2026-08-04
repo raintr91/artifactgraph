@@ -84,7 +84,20 @@ export function analyzeSpecFile(
         confidence: 0.9,
       })
       askUser.push(`[GRILL-MARK] Missing shell for ${profile}. Apply ${suggested}? (B=mark)`)
+    } else {
+      const knownShells = ['DataListPage', 'DataFormPage']
+      const shellTag = tags.find(t => t.startsWith('#shell:'))?.split(':')[1]?.trim()
+      if (shellTag && !knownShells.includes(shellTag)) {
+        gaps.push({
+          kind: 'needs-component',
+          message: `Unknown #shell: ${shellTag} — template may be missing. FE will render a <slot>, BE will render a TODO comment.`,
+          source: abs,
+          severity: 'warn',
+          confidence: 0.8,
+        })
+      }
     }
+    
     if (!hasPrefix(tags, '#pattern:')) {
       gaps.push({
         kind: 'missing-hashtag',

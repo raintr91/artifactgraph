@@ -62,6 +62,8 @@ Permission-aware / RBAC-gated
 F. Product patterns
 ================================================================================
 CRUD
+Delete flow / Delete
+Confirm dialog / Confirmation
 Search / Select / Act
 Import / Export / Bulk upload
 Approval / Workflow / Review queue

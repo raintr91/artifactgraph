@@ -66,6 +66,12 @@ const DEFAULT_BE_KEYWORD_HINTS: Record<string, string> = {
   middleware: '#api: middleware',
   resource: '#api: resource',
   controller: '#needs-endpoint',
+  // Common patterns
+  'delete flow': '#pattern: delete-flow',
+  delete: '#pattern: delete-flow',
+  'confirm dialog': '#pattern: confirm-dialog',
+  confirmation: '#pattern: confirm-dialog',
+  confirm: '#pattern: confirm-dialog',
   // API reuse / integration markers (Section L)
   'reuse api': '#reuse-api',
   'reuse-api': '#reuse-api',
