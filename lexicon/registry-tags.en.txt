@@ -19,6 +19,7 @@ PREFIXES
 #process:     capability / process / E2E / use case / scenario
 #common:      promoted shared artifact
 #needs-*      missing artifact
+#missing_info business fact gap (Docskit) — leave empty / grill; do not invent
 
 ================================================================================
 A. UI — shells / page types
@@ -161,9 +162,11 @@ Hashtags enforced by ArtifactGraph duplicate-route detection and Docskit grill r
 #cross-entity-service  Multi-entity cross-aggregate orchestration (alias cross-service)
 #derived-data     Internal computed/derived backend data field (not stored, not on entity)
 #needs-component  UI component missing in design registry or requiring template .hbs
+#missing_info     Business field/flow/validation unknown — Docskit grill hard gate; do not invent
 
 #reuse-api
 #call-external
 #cross-service
 #cross-entity-service
 #derived-data
+#missing_info

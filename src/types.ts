@@ -33,6 +33,11 @@ export type GapKind =
    * Rule: if 2 specs define the exact same URI+method without #reuse-api → blocking warning.
    */
   | 'duplicate-api-route'
+  /**
+   * Docskit business-fact gap (`#missing_info`). Do not invent fills — grill / member confirm
+   * before writing product SSOT.
+   */
+  | 'missing-info'
 
 export interface Gap {
   kind: GapKind

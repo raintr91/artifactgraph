@@ -19,6 +19,7 @@ import path from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import type { ArtifactgraphConfig } from '../types.js'
 import type { IndexStore, ApiRouteRow } from '../db/index-store.js'
+import { inferSurfaceFromRepoPath } from './product-paths.js'
 
 export interface ApiRouteEntry {
   /** URI path, e.g. /api/v1/users/{id}/update */
@@ -136,15 +137,9 @@ function inferAction(uriPath: string, method: string, operationId?: string): str
   return ''
 }
 
-/** Extract surface/module id from file path heuristics. */
+/** Extract surface/module id from file path heuristics (canonical + legacy). */
 function inferSurface(absPath: string, repoRoot: string): string {
-  const rel = path.relative(repoRoot, absPath)
-  // product/surfaces/<surface>/modules/<CMP-*>/ ...
-  const m = rel.match(/product[\\/]surfaces[\\/]([^/\\]+)[\\/]modules[\\/]([^/\\]+)/)
-  if (m) return `${m[1]}/${m[2]}`
-  // fallback: first 3 segments
-  const parts = rel.split(path.sep)
-  return parts.slice(0, Math.min(3, parts.length - 1)).join('/')
+  return inferSurfaceFromRepoPath(absPath, repoRoot)
 }
 
 /**

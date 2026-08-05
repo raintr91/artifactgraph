@@ -47,7 +47,7 @@ marks:
 
 ## Workflow (each `/docs-mark` session)
 
-1. Resolve scope: function id `W-*`/`API-*` under `product/surfaces/.../modules/CMP-*/code/`, `ir/spec.yaml`, optional code paths
+1. Resolve scope: function id `W-*`/`API-*` under `product/surfaces/.../CMP-*/<slug>/code/` (legacy `.../modules/CMP-*/` also accepted), `ir/spec.yaml`, optional code paths. Tag business gaps `#missing_info` — do not invent fills.
 2. Read `tags:`, `marks[]`, `technicalMarks[]`, both registries
 3. Apply member intent — one concern per mark
 4. Update spec YAML (`tags:` and/or `marks[]`)

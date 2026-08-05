@@ -626,9 +626,7 @@ test('shipped skill/rule route cross-repo lookups without CodeGraph ownership', 
   assert.match(skill, /does not follow those pointers/)
 })
 
-test('parityCheck discovers fields under product/surfaces/<surface>/modules/CMP-*/code/W-*/ir/*.yaml', () => {
-  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-parity-fixture-'))
-  const moduleDir = 'product/surfaces/admin-web/modules/CMP-01-auth'
+function writeParityFixture(repo, moduleDir) {
   const irDir = path.join(repo, moduleDir, 'checkout/code/W-01-web/ir')
   mkdirSync(irDir, { recursive: true })
   writeFileSync(
@@ -641,10 +639,69 @@ test('parityCheck discovers fields under product/surfaces/<surface>/modules/CMP-
     path.join(beIrDir, 'spec.yaml'),
     'id: API-01-web\nfields:\n  - name: status\n    type: string\n    empty: null\n',
   )
-  
+}
+
+test('parityCheck discovers fields under product/surfaces/<surface>/CMP-*/code/W-*/ir/*.yaml', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-parity-fixture-'))
+  const moduleDir = 'product/surfaces/admin-web/CMP-01-auth'
+  writeParityFixture(repo, moduleDir)
+
   const result = parityCheck({ repoRoot: repo, moduleDir })
   assert.equal(result.gaps.length, 1)
   assert.equal(result.gaps[0].kind, 'parity-drift')
   assert.match(result.gaps[0].message, /status/)
   assert.match(result.gaps[0].message, /W-01-web/)
+})
+
+test('parityCheck still accepts legacy .../modules/CMP-*/ paths', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-parity-legacy-'))
+  const moduleDir = 'product/surfaces/admin-web/modules/CMP-01-auth'
+  writeParityFixture(repo, moduleDir)
+
+  const result = parityCheck({ repoRoot: repo, moduleDir })
+  assert.equal(result.gaps.length, 1)
+  assert.equal(result.gaps[0].kind, 'parity-drift')
+})
+
+test('inferSurfaceFromRepoPath supports canonical and legacy CMP layouts', async () => {
+  const { inferSurfaceFromRepoPath } = await import('../dist/analyze/product-paths.js')
+  const root = '/tmp/hub'
+  assert.equal(
+    inferSurfaceFromRepoPath(
+      `${root}/product/surfaces/admin-web/CMP-01-auth/login/code/API-01/01-backend-spec.yaml`,
+      root,
+    ),
+    'admin-web/CMP-01-auth',
+  )
+  assert.equal(
+    inferSurfaceFromRepoPath(
+      `${root}/product/surfaces/admin-web/modules/CMP-01-auth/login/code/API-01/01-backend-spec.yaml`,
+      root,
+    ),
+    'admin-web/CMP-01-auth',
+  )
+})
+
+test('analyzeSpecFile surfaces #missing_info as missing-info gaps', async () => {
+  const { analyzeSpecFile } = await import('../dist/analyze/analyze-spec.js')
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-missing-info-'))
+  const specRel = 'product/surfaces/admin-web/CMP-01-auth/login/code/W-01/ir/spec.yaml'
+  const abs = path.join(repo, specRel)
+  mkdirSync(path.dirname(abs), { recursive: true })
+  writeFileSync(
+    abs,
+    [
+      'id: W-01',
+      'codegen:',
+      '  profile: list',
+      'tags:',
+      '  - "#shell: DataListPage"',
+      '  - "#missing_info"',
+      '',
+    ].join('\n'),
+  )
+  const cfg = { stack: 'docs', specRoots: ['product/surfaces'] }
+  const result = analyzeSpecFile(repo, cfg, abs)
+  assert.ok(result.gaps.some((g) => g.kind === 'missing-info'))
+  assert.ok(result.askUser.some((q) => /MISSING-INFO/i.test(q)))
 })

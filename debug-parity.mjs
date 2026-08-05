@@ -4,7 +4,7 @@ import path from 'node:path'
 import os from 'node:os'
 
 const repo = mkdtempSync(path.join(os.tmpdir(), 'artifactgraph-parity-fixture-'))
-const moduleDir = 'product/surfaces/admin-web/modules/CMP-01-auth'
+const moduleDir = 'product/surfaces/admin-web/CMP-01-auth'
 const irDir = path.join(repo, moduleDir, 'login/code/W-01-web/ir')
 mkdirSync(irDir, { recursive: true })
 writeFileSync(

@@ -144,7 +144,7 @@ export function analyzeSpecFile(
     }
   }
 
-  // --- already tagged needs-* stay visible in inventory ---
+  // --- already tagged needs-* / #missing_info stay visible in inventory ---
   for (const t of tags) {
     if (t.includes('#needs-component')) {
       gaps.push({
@@ -186,6 +186,36 @@ export function analyzeSpecFile(
         confidence: 1,
       })
     }
+    if (t.includes('#missing_info')) {
+      gaps.push({
+        kind: 'missing-info',
+        message: `Business gap ${t} — re-check ArtifactGraph/registry, micro-scope, propose options; do not invent; write product SSOT only after member confirm`,
+        suggestedTag: t,
+        source: abs,
+        severity: 'warn',
+        confidence: 0.95,
+      })
+      askUser.push(
+        `[MISSING-INFO] Resolve ${t}: A) fill from member answer  B) keep empty + defer  C) promote common only after confirm`,
+      )
+    }
+  }
+
+  // Inline / note occurrences not listed under tags/marks
+  const rawText = readFileSync(abs, 'utf8')
+  if (rawText.includes('#missing_info') && !tags.some((t) => t.includes('#missing_info'))) {
+    gaps.push({
+      kind: 'missing-info',
+      message:
+        'Spec body contains #missing_info — treat as open business gap; grill hard gate before inventing or overwriting SSOT',
+      suggestedTag: '#missing_info',
+      source: abs,
+      severity: 'warn',
+      confidence: 0.9,
+    })
+    askUser.push(
+      '[MISSING-INFO] Inline #missing_info found: A) promote into tags/marks + ask member  B) keep note  C) defer',
+    )
   }
 
   // --- non-legacy: confirm generated blocks with member (LOCAL, not cloud) ---

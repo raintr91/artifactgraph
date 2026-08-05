@@ -48,7 +48,7 @@ Cloud **không** viết registry. Promote = docs `DESIGN-REGISTRY-PROMOTION` / `
 - Local: gắn tag chuẩn từ index (shell/common/unit/e2e đã học); `specSplit` / `docsRender` via MCP.
 - Confirm blocks when `specOrigin` is **not** legacy.
 - Cloud: only unknown domain rules in `cloudPromptSlice`.
-- **Không** `portal:gen` app ở phase me (trừ khi skill nói rõ dry gate).
+- **Không** `portal:gen` app ở phase này (trừ khi skill nói rõ dry gate).
 
 ### `/api-spec` · `/api-integration-spec`
 

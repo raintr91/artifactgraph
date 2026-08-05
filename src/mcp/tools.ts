@@ -134,7 +134,12 @@ export function registerTools(server: McpServer): void {
     'artifactgraph_analyze',
     'Local preflight: analyze ir/spec.yaml and/or bullets → gaps, draft tags, cloudPromptSlice',
     {
-      specPath: z.string().optional().describe('Path to ir/spec.yaml, e.g. .../modules/CMP-*/<function-slug>/code/{W-*|API-*}/ir/spec.yaml'),
+      specPath: z
+        .string()
+        .optional()
+        .describe(
+          'Path to ir/spec.yaml, e.g. product/surfaces/<surface>/CMP-*/<slug>/code/{W-*|API-*}/ir/spec.yaml (legacy .../modules/CMP-*/ also accepted)',
+        ),
       bullets: z.string().optional().describe('Free-text bullets when IR does not exist yet'),
     },
     async ({ specPath, bullets }) => {
@@ -158,7 +163,7 @@ export function registerTools(server: McpServer): void {
   /** Alias-style tool for grill phase confirm prompts. */
   server.tool(
     'artifactgraph_grill_check',
-    'Grill helper: missing hashtags / needs-* candidates + A/B/C askUser prompts',
+    'Grill helper: missing hashtags / needs-* / #missing_info candidates + A/B/C askUser prompts (do not invent business facts)',
     {
       specPath: z.string().optional(),
       bullets: z.string().optional(),
@@ -191,7 +196,9 @@ export function registerTools(server: McpServer): void {
       moduleDir: z
         .string()
         .optional()
-        .describe('CMP module root, e.g. product/surfaces/admin-web/modules/CMP-01-auth/'),
+        .describe(
+          'CMP module root, e.g. product/surfaces/admin-web/CMP-01-auth/ (legacy .../modules/CMP-01-auth/ also accepted)',
+        ),
       findingsPath: z.string().optional().describe('YAML/JSON with parityFindings[] from cloud'),
       findingsJson: z.string().optional().describe('Inline JSON: { parityFindings: [...] }'),
     },
